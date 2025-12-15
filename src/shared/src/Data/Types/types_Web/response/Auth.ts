@@ -1,4 +1,4 @@
-import { ServerUser, ApiResponseData } from 'Shared/Data/Types/index.js'
+import { ServerUser, ApiResponseData } from '../../index'
 
 /**
  * Data payload for Authentication response.

@@ -17,30 +17,75 @@ export type ProductDTO = {
 	currentPrice: number
 	buyNowPrice?: number
 	endTime: string
+	createdAt?: string
 	bidCount?: number
 	categoryName?: string
+	categoryId?: string
 	highestBidderName?: string
 	isNew?: boolean
+	// ✅ ADD: Seller info
+	sellerName?: string
+	sellerId?: string
+	sellerEmail?: string
+	sellerRating?: number
+	sellerTotalRatings?: number
+	// ✅ ADD: Other fields
+	startTime?: string
+	autoExtend?: boolean
+	isSold?: boolean
+	updatedAt?: string
 }
 
 // ✅ HÀM MAP CHUNG (tái sử dụng cho tất cả routes)
-const mapDocToDTO = (doc: any): ProductDTO => ({
-	_id: doc._id.toString(),
-	name: doc.name,
-	description: doc.description,
-	images: doc.images,
-	startPrice: doc.startPrice,
-	priceStep: doc.priceStep,
-	currentPrice: doc.currentPrice,
-	buyNowPrice: doc.buyNowPrice,
-	endTime: doc.endTime.toISOString(),
-	bidCount: doc.bidCount ?? 0,
-	categoryName: doc.category?.name || 'Chưa phân loại',
-	highestBidderName: doc.highestBidder?.name
-		? `****${doc.highestBidder.name.slice(-4)}`
-		: 'Chưa có',
-	isNew: false,
-})
+const mapDocToDTO = (doc: any): ProductDTO => {
+	// ✅ Calculate seller rating
+	const sellerPositiveReviews = doc.seller?.positiveReviews || 0
+	const sellerNegativeReviews = doc.seller?.negativeReviews || 0
+	const sellerTotalRatings = sellerPositiveReviews + sellerNegativeReviews
+	const sellerRating =
+		sellerTotalRatings > 0
+			? Math.round((sellerPositiveReviews / sellerTotalRatings) * 100)
+			: 0
+
+	return {
+		_id: doc._id.toString(),
+		name: doc.name,
+		description: doc.description,
+		images: doc.images,
+		startPrice: doc.startPrice,
+		priceStep: doc.priceStep,
+		currentPrice: doc.currentPrice,
+		buyNowPrice: doc.buyNowPrice,
+		endTime: doc.endTime.toISOString(),
+		startTime: doc.startTime ? doc.startTime.toISOString() : undefined,
+		createdAt: doc.createdAt ? doc.createdAt.toISOString() : undefined,
+		updatedAt: doc.updatedAt ? doc.updatedAt.toISOString() : undefined,
+		bidCount: doc.bidCount ?? 0,
+		autoExtend: doc.autoExtend ?? false,
+		isSold: doc.isSold ?? false,
+
+		// ✅ Category info
+		categoryName: doc.category?.name || 'Chưa phân loại',
+		categoryId: doc.category?._id ? doc.category._id.toString() : undefined,
+
+		// ✅ Seller info
+		sellerName:
+			doc.seller?.firstName && doc.seller?.lastName
+				? `${doc.seller.firstName} ${doc.seller.lastName}`
+				: 'Người bán',
+		sellerId: doc.seller?._id ? doc.seller._id.toString() : undefined,
+		sellerEmail: doc.seller?.email,
+		sellerRating,
+		sellerTotalRatings,
+
+		// ✅ Highest bidder info (masked)
+		highestBidderName: doc.highestBidder?.firstName
+			? `****${doc.highestBidder.firstName.slice(-3)}`
+			: 'Chưa có',
+
+		isNew: false,
+	}
+}
 
 // GET /api/products/home
 router.get('/home', async (req: Request, res: Response) => {
@@ -202,6 +247,35 @@ router.get(
 		}
 	}
 )
+
+// GET /api/products/:id
+router.get('/:id', async (req: Request, res: Response) => {
+	try {
+		const { id } = req.params
+
+		const product = await Product.findById(id)
+			.populate('category', 'name')
+			.populate(
+				'seller',
+				'firstName lastName email positiveReviews negativeReviews'
+			) // ✅ Add reviews
+			.populate('highestBidder', 'firstName lastName')
+			.lean()
+
+		if (!product) {
+			return res.status(404).json({ error: 'Sản phẩm không tìm thấy' })
+		}
+
+		return res.json({
+			success: true,
+			product: mapDocToDTO(product), // ✅ Now includes seller info
+		})
+	} catch (error: any) {
+		return res
+			.status(500)
+			.json({ error: error.message || 'Could not fetch product.' })
+	}
+})
 
 // POST /api/products
 router.post(

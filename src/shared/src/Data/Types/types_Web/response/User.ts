@@ -1,4 +1,4 @@
-import { BidType, ProductType, ReviewType } from 'Shared/Data/Types/index.js'
+import { BidType, ProductType, ReviewType } from '../../index'
 
 /**
  * Data payload for the Watchlist response.

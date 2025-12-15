@@ -1,5 +1,8 @@
+// src/components/auth/PublicRoute.tsx
+
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
+import { UserRole } from '@/services/types/auth.types'
 
 interface PublicRouteProps {
 	children: React.ReactNode
@@ -12,23 +15,24 @@ export const PublicRoute = ({
 	redirectIfAuthenticated = true,
 	redirectTo = '/',
 }: PublicRouteProps) => {
-	const { isAuthenticated, isLoading } = useAuth()
+	const { user, isAuthenticated, isLoading } = useAuth()
 
-	// ✅ FIXED: Show loading instead of children while checking auth
+	// Show loading while checking auth
 	if (isLoading) {
 		return (
-			<div className="min-h-screen flex items-center justify-center bg-background">
-				<div className="text-center">
-					<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-					<p className="text-muted-foreground">Đang tải...</p>
-				</div>
+			<div className="flex h-screen items-center justify-center">
+				<p className="text-muted-foreground">Đang tải...</p>
 			</div>
 		)
 	}
 
-	// Redirect to home if already authenticated
+	// ✅ Redirect authenticated users
 	if (redirectIfAuthenticated && isAuthenticated) {
-		console.log('✅ Already authenticated, redirecting to:', redirectTo)
+		// ✅ Admin redirect to admin dashboard
+		if (user?.role === UserRole.ADMIN) {
+			return <Navigate to="/admin/users" replace />
+		}
+		// Bidder/Seller redirect to home
 		return <Navigate to={redirectTo} replace />
 	}
 

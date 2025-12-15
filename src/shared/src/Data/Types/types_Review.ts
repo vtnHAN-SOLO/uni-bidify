@@ -1,4 +1,4 @@
-import { RATING } from 'Shared/Data/Constants/index.js'
+import { RATING } from '../Constants/index.js'
 import { User } from './types_User.js'
 import { ProductType } from './types_Product.js'
 

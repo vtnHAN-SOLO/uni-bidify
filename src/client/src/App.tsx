@@ -1,3 +1,5 @@
+// src/App.tsx
+
 import { Toaster } from '@/components/ui/feedback/toaster'
 import { Toaster as Sonner } from '@/components/ui/feedback/sonner'
 import { TooltipProvider } from '@/components/ui/overlay/tooltip'
@@ -6,16 +8,18 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import { PublicRoute } from '@/components/auth/PublicRoute'
+import { AdminOnlyRoute } from '@/components/auth/AdminOnlyRoute' // ✅ NEW
+import { NonAdminRoute } from '@/components/auth/NonAdminRoute' // ✅ NEW
 import { UserRole } from '@/services/types/auth.types'
 import { RecaptchaProvider } from '@/components/providers/RecaptchaProvider'
 import { WatchlistProvider } from './contexts/WatchlistContext'
+
 // Pages
 import Index from './pages/Index'
 import ProductDetail from './pages/ProductDetail'
 import Auth from './pages/Auth'
 import CategoryProducts from './pages/CategoryProducts'
 import Search from './pages/Search'
-
 import CreateProduct from './pages/CreateProduct'
 import SellerProducts from './pages/SellerProducts'
 import EditProductDescription from './pages/EditProductDescription'
@@ -28,6 +32,7 @@ import BidderProfile from './pages/BidderProfile'
 import SellerProfile from './pages/SellerProfile'
 import AdminProfile from './pages/admin/AdminProfile'
 import { ProductsList } from './pages/ProductsList'
+
 // Admin pages
 import AdminCategories from './pages/admin/AdminCategories'
 import AdminProducts from './pages/admin/AdminProducts'
@@ -45,112 +50,118 @@ const queryClient = new QueryClient({
 
 const App = () => (
 	<QueryClientProvider client={queryClient}>
-		<TooltipProvider>
-			<RecaptchaProvider>
+		<RecaptchaProvider>
+			<TooltipProvider>
+				<Toaster />
+				<Sonner />
 				<BrowserRouter>
 					<AuthProvider>
 						<WatchlistProvider>
 							<Routes>
-								{/* Public Routes - Anyone can access */}
-								<Route path="/" element={<Index />} />
+								{/* ✅ Public Routes - Admin không được vào */}
 								<Route
-									path="/product/:id"
+									path="/"
+									element={
+										<NonAdminRoute>
+											<Index />
+										</NonAdminRoute>
+									}
+								/>
+								<Route
+									path="/products/:id"
 									element={<ProductDetail />}
 								/>
 								<Route
-									path="/category/:category"
-									element={<CategoryProducts />}
+									path="/category/:categoryName"
+									element={
+										<NonAdminRoute>
+											<CategoryProducts />
+										</NonAdminRoute>
+									}
 								/>
 								<Route
-									path="/products/:type"
-									element={<ProductsList />}
+									path="/search"
+									element={
+										<NonAdminRoute>
+											<Search />
+										</NonAdminRoute>
+									}
 								/>
-								<Route path="/search" element={<Search />} />
+								<Route
+									path="/products"
+									element={
+										<NonAdminRoute>
+											<ProductsList />
+										</NonAdminRoute>
+									}
+								/>
 
-								{/* Auth Route - Redirect to home if already logged in */}
+								{/* Auth Routes - Redirect if already logged in */}
 								<Route
 									path="/auth"
 									element={
-										<PublicRoute
-											redirectIfAuthenticated={true}
-										>
+										<PublicRoute>
 											<Auth />
 										</PublicRoute>
 									}
 								/>
 								<Route
 									path="/verify-otp"
-									element={<VerifyOTP />}
+									element={
+										<PublicRoute>
+											<VerifyOTP />
+										</PublicRoute>
+									}
 								/>
-								{/* ✅ NEW: Forgot Password Route */}
 								<Route
 									path="/forgot-password"
-									element={<ForgotPassword />}
+									element={
+										<PublicRoute>
+											<ForgotPassword />
+										</PublicRoute>
+									}
 								/>
 
-								{/* ✅ BIDDER PROFILE - Default profile route */}
+								{/* ✅ Protected Routes - Bidder/Seller only (Admin redirect to /admin/users) */}
 								<Route
 									path="/profile"
 									element={
 										<ProtectedRoute>
-											<BidderProfile />
+											<NonAdminRoute>
+												<BidderProfile />
+											</NonAdminRoute>
+										</ProtectedRoute>
+									}
+								/>
+								<Route
+									path="/watchlist"
+									element={
+										<ProtectedRoute>
+											<NonAdminRoute>
+												<WatchList />
+											</NonAdminRoute>
+										</ProtectedRoute>
+									}
+								/>
+								<Route
+									path="/order-completion"
+									element={
+										<ProtectedRoute>
+											<NonAdminRoute>
+												<OrderCompletion />
+											</NonAdminRoute>
 										</ProtectedRoute>
 									}
 								/>
 
-								{/* ✅ SELLER PROFILE - Only for sellers/admins */}
+								{/* ✅ Seller Routes - Admin không được vào */}
 								<Route
 									path="/seller/profile"
 									element={
 										<ProtectedRoute
-											allowedRoles={[
-												UserRole.SELLER,
-												UserRole.ADMIN,
-											]}
+											allowedRoles={[UserRole.SELLER]}
 										>
 											<SellerProfile />
-										</ProtectedRoute>
-									}
-								/>
-								{/* ✅ NEW: ADMIN PROFILE - Only for admins */}
-								<Route
-									path="/admin/profile"
-									element={
-										<ProtectedRoute
-											allowedRoles={[UserRole.ADMIN]}
-										>
-											<AdminProfile />
-										</ProtectedRoute>
-									}
-								/>
-								<Route
-									path="/watch-list"
-									element={
-										<ProtectedRoute>
-											<WatchList />
-										</ProtectedRoute>
-									}
-								/>
-								<Route
-									path="/order/:id"
-									element={
-										<ProtectedRoute>
-											<OrderCompletion />
-										</ProtectedRoute>
-									}
-								/>
-
-								{/* Seller Routes - Require SELLER or ADMIN role */}
-								<Route
-									path="/seller/create-product"
-									element={
-										<ProtectedRoute
-											allowedRoles={[
-												UserRole.SELLER,
-												UserRole.ADMIN,
-											]}
-										>
-											<CreateProduct />
 										</ProtectedRoute>
 									}
 								/>
@@ -158,82 +169,83 @@ const App = () => (
 									path="/seller/products"
 									element={
 										<ProtectedRoute
-											allowedRoles={[
-												UserRole.SELLER,
-												UserRole.ADMIN,
-											]}
+											allowedRoles={[UserRole.SELLER]}
 										>
 											<SellerProducts />
 										</ProtectedRoute>
 									}
 								/>
 								<Route
-									path="/seller/products/:id/edit-description"
+									path="/seller/products/new"
 									element={
 										<ProtectedRoute
-											allowedRoles={[
-												UserRole.SELLER,
-												UserRole.ADMIN,
-											]}
+											allowedRoles={[UserRole.SELLER]}
+										>
+											<CreateProduct />
+										</ProtectedRoute>
+									}
+								/>
+								<Route
+									path="/seller/products/:id/edit"
+									element={
+										<ProtectedRoute
+											allowedRoles={[UserRole.SELLER]}
 										>
 											<EditProductDescription />
 										</ProtectedRoute>
 									}
 								/>
 
-								{/* Admin Routes - Require ADMIN role */}
+								{/* ✅ Admin Routes - Chỉ Admin mới vào được */}
+								<Route
+									path="/admin/profile"
+									element={
+										<AdminOnlyRoute>
+											<AdminProfile />
+										</AdminOnlyRoute>
+									}
+								/>
 								<Route
 									path="/admin/categories"
 									element={
-										<ProtectedRoute
-											allowedRoles={[UserRole.ADMIN]}
-										>
+										<AdminOnlyRoute>
 											<AdminCategories />
-										</ProtectedRoute>
+										</AdminOnlyRoute>
 									}
 								/>
 								<Route
 									path="/admin/products"
 									element={
-										<ProtectedRoute
-											allowedRoles={[UserRole.ADMIN]}
-										>
+										<AdminOnlyRoute>
 											<AdminProducts />
-										</ProtectedRoute>
+										</AdminOnlyRoute>
 									}
 								/>
 								<Route
 									path="/admin/users"
 									element={
-										<ProtectedRoute
-											allowedRoles={[UserRole.ADMIN]}
-										>
+										<AdminOnlyRoute>
 											<AdminUsers />
-										</ProtectedRoute>
+										</AdminOnlyRoute>
 									}
 								/>
 								<Route
 									path="/admin/auction-settings"
 									element={
-										<ProtectedRoute
-											allowedRoles={[UserRole.ADMIN]}
-										>
+										<AdminOnlyRoute>
 											<AdminAuctionSettings />
-										</ProtectedRoute>
+										</AdminOnlyRoute>
 									}
 								/>
 
 								{/* 404 Route */}
 								<Route path="*" element={<NotFound />} />
 							</Routes>
-
-							<Toaster />
-							<Sonner />
 						</WatchlistProvider>
 					</AuthProvider>
 				</BrowserRouter>
-			</RecaptchaProvider>
-		</TooltipProvider>
+			</TooltipProvider>
+		</RecaptchaProvider>
 	</QueryClientProvider>
 )
 

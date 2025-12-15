@@ -2,7 +2,7 @@ import {
 	ROLE,
 	EMAIL_PROVIDER,
 	UPGRADE_REQUEST_STATUS,
-} from 'Shared/Data/Constants/index.js'
+} from '../Constants/index'
 
 /**
  * Name Type Definition

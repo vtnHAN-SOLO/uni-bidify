@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Header } from '@/components/Header'
 import { Button } from '@/components/ui/input/button'
@@ -30,11 +30,43 @@ import {
 } from 'lucide-react'
 import { mockProducts } from '@/lib/mockData'
 import { useAuth } from '@/contexts/AuthContext'
+import { userApi } from '@/services'
+import { toast } from 'sonner'
+import { useQuery } from '@tanstack/react-query'
 
 export default function SellerProfile() {
 	const [activeTab, setActiveTab] = useState('info')
+	const [formData, setFormData] = useState({
+		firstName: '',
+		lastName: '',
+		address: '',
+		currentPassword: '',
+		newPassword: '',
+	})
+	const [isUpdatingProfile, setIsUpdatingProfile] = useState(false)
 	const navigate = useNavigate()
 	const { user, isLoading } = useAuth()
+
+	// ✅ Fetch user profile data
+	const { data: profileData, isLoading: isLoadingProfile } = useQuery({
+		queryKey: ['userProfile'],
+		queryFn: userApi.getProfile,
+		enabled: !!user && !isLoading,
+	})
+
+	// Initialize form data from profile
+	useEffect(() => {
+		if (profileData?.user) {
+			setFormData({
+				firstName: profileData.user.firstName || '',
+				lastName: profileData.user.lastName || '',
+				address: profileData.user.address || '',
+				currentPassword: '',
+				newPassword: '',
+			})
+		}
+	}, [profileData])
+
 	if (isLoading) {
 		return (
 			<div className="min-h-screen bg-background">
@@ -48,39 +80,25 @@ export default function SellerProfile() {
 		)
 	}
 
-	// Mock user data
-	const profileUser = {
-		name: user?.firstName + ' ' + user?.lastName || 'Người dùng',
-		email: user?.email || 'user@example.com',
-		address: user?.address || 'Chưa cập nhật',
-		rating: 4.8,
-		totalReviews: 45,
-		positiveReviews: 42,
-		role: user?.role || 'seller',
-	}
-
-	const reviews = [
-		{
-			id: 1,
-			from: 'Người mua XYZ',
-			rating: 1,
-			comment: 'Sản phẩm tốt, giao hàng nhanh!',
-			date: '2025-11-20',
-		},
-		{
-			id: 2,
-			from: 'Người mua ABC',
-			rating: 1,
-			comment: 'Chất lượng như mô tả',
-			date: '2025-11-18',
-		},
-	]
-
-	const activeProducts = mockProducts.slice(0, 6)
-	const soldProducts = mockProducts.slice(6, 10)
+	const profile = profileData?.user
 
 	const handleSwitchToBidder = () => {
 		navigate('/profile')
+	}
+
+	const handleUpdateProfile = async () => {
+		try {
+			setIsUpdatingProfile(true)
+			await userApi.updateProfile(formData)
+			toast.success('Cập nhật thông tin thành công!')
+		} catch (error: any) {
+			toast.error(
+				error.response?.data?.error || 'Cập nhật thông tin thất bại'
+			)
+		} finally {
+			setIsUpdatingProfile(false)
+			window.location.reload()
+		}
 	}
 
 	return (
@@ -95,14 +113,14 @@ export default function SellerProfile() {
 							<CardHeader>
 								<div className="flex items-center justify-center mb-4">
 									<div className="h-24 w-24 rounded-full bg-gradient-to-br from-amber-400 to-orange-600 flex items-center justify-center text-4xl font-bold text-white">
-										{profileUser.name.charAt(0)}
+										{profile?.firstName?.charAt(0) || 'S'}
 									</div>
 								</div>
 								<CardTitle className="text-center">
-									{profileUser.name}
+									{profile?.fullName || 'Người dùng'}
 								</CardTitle>
 								<CardDescription className="text-center">
-									{profileUser.email}
+									{profile?.email}
 								</CardDescription>
 								<div className="flex justify-center mt-2">
 									<Badge className="bg-gradient-to-r from-amber-500 to-orange-600">
@@ -116,11 +134,13 @@ export default function SellerProfile() {
 										<div className="flex items-center gap-2">
 											<Star className="h-5 w-5 text-yellow-500 fill-yellow-500" />
 											<span className="font-semibold">
-												{profileUser.rating}
+												{profile?.ratingPercentage || 0}
+												%
 											</span>
 										</div>
 										<span className="text-sm text-muted-foreground">
-											{profileUser.totalReviews} đánh giá
+											{profile?.totalReviews || 0} đánh
+											giá
 										</span>
 									</div>
 
@@ -128,12 +148,7 @@ export default function SellerProfile() {
 										<div className="flex items-center gap-2">
 											<ThumbsUp className="h-5 w-5 text-green-500" />
 											<span className="font-semibold">
-												{Math.round(
-													(profileUser.positiveReviews /
-														profileUser.totalReviews) *
-														100
-												)}
-												%
+												{profile?.positiveReviews || 0}
 											</span>
 										</div>
 										<span className="text-sm text-muted-foreground">
@@ -181,12 +196,35 @@ export default function SellerProfile() {
 									</CardHeader>
 									<CardContent className="space-y-4">
 										<div className="space-y-2">
-											<Label htmlFor="name">
-												Họ và tên
+											<Label htmlFor="firstName">
+												Họ
 											</Label>
 											<Input
-												id="name"
-												defaultValue={profileUser.name}
+												id="firstName"
+												value={formData.firstName}
+												onChange={(e) =>
+													setFormData({
+														...formData,
+														firstName:
+															e.target.value,
+													})
+												}
+											/>
+										</div>
+										<div className="space-y-2">
+											<Label htmlFor="lastName">
+												Tên
+											</Label>
+											<Input
+												id="lastName"
+												value={formData.lastName}
+												onChange={(e) =>
+													setFormData({
+														...formData,
+														lastName:
+															e.target.value,
+													})
+												}
 											/>
 										</div>
 										<div className="space-y-2">
@@ -194,7 +232,7 @@ export default function SellerProfile() {
 											<Input
 												id="email"
 												type="email"
-												defaultValue={profileUser.email}
+												value={profile?.email || ''}
 												disabled
 											/>
 										</div>
@@ -204,30 +242,57 @@ export default function SellerProfile() {
 											</Label>
 											<Textarea
 												id="address"
-												defaultValue={
-													profileUser.address
+												value={formData.address}
+												onChange={(e) =>
+													setFormData({
+														...formData,
+														address: e.target.value,
+													})
 												}
 											/>
 										</div>
 										<div className="space-y-2">
-											<Label htmlFor="current-password">
+											<Label htmlFor="currentPassword">
 												Mật khẩu hiện tại
 											</Label>
 											<Input
-												id="current-password"
+												id="currentPassword"
 												type="password"
+												value={formData.currentPassword}
+												onChange={(e) =>
+													setFormData({
+														...formData,
+														currentPassword:
+															e.target.value,
+													})
+												}
 											/>
 										</div>
 										<div className="space-y-2">
-											<Label htmlFor="new-password">
+											<Label htmlFor="newPassword">
 												Mật khẩu mới
 											</Label>
 											<Input
-												id="new-password"
+												id="newPassword"
 												type="password"
+												value={formData.newPassword}
+												onChange={(e) =>
+													setFormData({
+														...formData,
+														newPassword:
+															e.target.value,
+													})
+												}
 											/>
 										</div>
-										<Button>Cập nhật thông tin</Button>
+										<Button
+											onClick={handleUpdateProfile}
+											disabled={isUpdatingProfile}
+										>
+											{isUpdatingProfile
+												? 'Đang cập nhật...'
+												: 'Cập nhật thông tin'}
+										</Button>
 									</CardContent>
 								</Card>
 							</TabsContent>
@@ -248,14 +313,22 @@ export default function SellerProfile() {
 										</CardDescription>
 									</CardHeader>
 									<CardContent>
-										<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-											{activeProducts.map((product) => (
-												<ProductCard
-													key={product.id}
-													{...product}
-												/>
-											))}
-										</div>
+										{mockProducts.length === 0 ? (
+											<p className="text-muted-foreground text-center py-8">
+												Bạn chưa có sản phẩm nào
+											</p>
+										) : (
+											<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+												{mockProducts
+													.slice(0, 6)
+													.map((product) => (
+														<ProductCard
+															key={product.id}
+															{...product}
+														/>
+													))}
+											</div>
+										)}
 									</CardContent>
 								</Card>
 							</TabsContent>
@@ -275,14 +348,22 @@ export default function SellerProfile() {
 										</CardDescription>
 									</CardHeader>
 									<CardContent>
-										<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-											{soldProducts.map((product) => (
-												<ProductCard
-													key={product.id}
-													{...product}
-												/>
-											))}
-										</div>
+										{mockProducts.length === 0 ? (
+											<p className="text-muted-foreground text-center py-8">
+												Bạn chưa bán sản phẩm nào
+											</p>
+										) : (
+											<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+												{mockProducts
+													.slice(6, 10)
+													.map((product) => (
+														<ProductCard
+															key={product.id}
+															{...product}
+														/>
+													))}
+											</div>
+										)}
 									</CardContent>
 								</Card>
 							</TabsContent>
@@ -303,47 +384,42 @@ export default function SellerProfile() {
 									</CardHeader>
 									<CardContent>
 										<div className="space-y-4">
-											{reviews.map((review) => (
-												<div
-													key={review.id}
-													className="border rounded-lg p-4"
-												>
-													<div className="flex items-start justify-between mb-2">
+											{profile && (
+												<div className="border-t pt-4">
+													<p className="text-sm text-muted-foreground mb-2">
+														Tổng hợp đánh giá
+													</p>
+													<div className="grid grid-cols-2 gap-4 mb-4">
 														<div>
-															<p className="font-semibold">
-																{review.from}
+															<p className="text-2xl font-bold text-green-600">
+																{
+																	profile.positiveReviews
+																}
 															</p>
 															<p className="text-sm text-muted-foreground">
-																{review.date}
+																Tích cực
 															</p>
 														</div>
-														<Badge
-															variant={
-																review.rating >
-																0
-																	? 'default'
-																	: 'destructive'
-															}
-														>
-															{review.rating >
-															0 ? (
-																<>
-																	<ThumbsUp className="h-3 w-3 mr-1" />
-																	+1
-																</>
-															) : (
-																<>
-																	<ThumbsDown className="h-3 w-3 mr-1" />
-																	-1
-																</>
-															)}
-														</Badge>
+														<div>
+															<p className="text-2xl font-bold text-red-600">
+																{
+																	profile.negativeReviews
+																}
+															</p>
+															<p className="text-sm text-muted-foreground">
+																Tiêu cực
+															</p>
+														</div>
 													</div>
-													<p className="text-sm">
-														{review.comment}
-													</p>
+													{profile.totalReviews ===
+														0 && (
+														<p className="text-muted-foreground text-center py-4">
+															Bạn chưa có đánh giá
+															nào
+														</p>
+													)}
 												</div>
-											))}
+											)}
 										</div>
 									</CardContent>
 								</Card>

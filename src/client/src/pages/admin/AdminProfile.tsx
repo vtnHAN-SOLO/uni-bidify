@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Header } from '@/components/Header'
 import { Button } from '@/components/ui/input/button'
 import { Input } from '@/components/ui/input/input'
@@ -16,8 +16,36 @@ import { Shield, Mail, MapPin, User } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { toast } from 'sonner'
 import { AdminHeader } from './AdminHeader'
+import { userApi } from '@/services'
+import { useQuery } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
 export default function AdminProfile() {
 	const { user, isLoading } = useAuth()
+	const [formData, setFormData] = useState({
+		firstName: '',
+		lastName: '',
+		address: '',
+		currentPassword: '',
+		newPassword: '',
+	})
+	const { data: profileData, isLoading: isLoadingProfile } = useQuery({
+		queryKey: ['userProfile'],
+		queryFn: userApi.getProfile,
+		enabled: !!user && !isLoading,
+	})
+	const [isUpdatingProfile, setIsUpdatingProfile] = useState(false)
+	// Initialize form data from profile
+	useEffect(() => {
+		if (profileData?.user) {
+			setFormData({
+				firstName: profileData.user.firstName || '',
+				lastName: profileData.user.lastName || '',
+				address: profileData.user.address || '',
+				currentPassword: '',
+				newPassword: '',
+			})
+		}
+	}, [profileData])
 	if (isLoading) {
 		return (
 			<div className="min-h-screen bg-background">
@@ -30,6 +58,7 @@ export default function AdminProfile() {
 			</div>
 		)
 	}
+
 	// Profile data from AuthContext
 	const profileUser = {
 		name: user?.firstName + ' ' + user?.lastName || 'Admin',
@@ -38,9 +67,60 @@ export default function AdminProfile() {
 		role: user?.role || 'ROLE ADMIN',
 	}
 
-	const handleUpdateProfile = () => {
-		// TODO: Call API to update profile
-		toast.success('Cập nhật thông tin thành công!')
+	const handleUpdateProfile = async () => {
+		try {
+			setIsUpdatingProfile(true)
+
+			// ✅ Trim all string fields before sending
+			const trimmedData = {
+				firstName: formData.firstName.trim(),
+				lastName: formData.lastName.trim(),
+				address: formData.address.trim(),
+				currentPassword: formData.currentPassword.trim(),
+				newPassword: formData.newPassword.trim(),
+			}
+
+			// ✅ Validate required fields
+			if (!trimmedData.firstName || !trimmedData.lastName) {
+				toast.error('Họ tên không được để trống')
+				return
+			}
+
+			// ✅ Only send password fields if they are filled
+			const updateData: any = {
+				firstName: trimmedData.firstName,
+				lastName: trimmedData.lastName,
+				address: trimmedData.address,
+			}
+
+			// ✅ Add password fields only if user wants to change password
+			if (trimmedData.currentPassword && trimmedData.newPassword) {
+				if (trimmedData.newPassword.length < 6) {
+					toast.error('Mật khẩu mới phải có ít nhất 6 ký tự')
+					return
+				}
+				updateData.currentPassword = trimmedData.currentPassword
+				updateData.newPassword = trimmedData.newPassword
+			}
+
+			await userApi.updateProfile(updateData)
+
+			// ✅ Clear password fields after successful update
+			setFormData({
+				...formData,
+				currentPassword: '',
+				newPassword: '',
+			})
+
+			toast.success('Cập nhật thông tin thành công!')
+		} catch (error: any) {
+			toast.error(
+				error.response?.data?.error || 'Cập nhật thông tin thất bại'
+			)
+		} finally {
+			setIsUpdatingProfile(false)
+			window.location.reload()
+		}
 	}
 
 	return (
@@ -110,16 +190,26 @@ export default function AdminProfile() {
 										</Label>
 										<Input
 											id="firstName"
-											defaultValue={user?.firstName}
-											placeholder="Nhập họ và tên đệm"
+											value={formData.firstName}
+											onChange={(e) =>
+												setFormData({
+													...formData,
+													firstName: e.target.value,
+												})
+											}
 										/>
 									</div>
 									<div className="space-y-2">
 										<Label htmlFor="lastName">Tên</Label>
 										<Input
 											id="lastName"
-											defaultValue={user?.lastName}
-											placeholder="Nhập tên"
+											value={formData.lastName}
+											onChange={(e) =>
+												setFormData({
+													...formData,
+													lastName: e.target.value,
+												})
+											}
 										/>
 									</div>
 								</div>
@@ -144,9 +234,13 @@ export default function AdminProfile() {
 									<Label htmlFor="address">Địa chỉ</Label>
 									<Textarea
 										id="address"
-										defaultValue={profileUser.address}
-										placeholder="Nhập địa chỉ của bạn"
-										rows={3}
+										value={formData.address}
+										onChange={(e) =>
+											setFormData({
+												...formData,
+												address: e.target.value,
+											})
+										}
 									/>
 								</div>
 
@@ -163,7 +257,14 @@ export default function AdminProfile() {
 											<Input
 												id="currentPassword"
 												type="password"
-												placeholder="Nhập mật khẩu hiện tại"
+												value={formData.currentPassword}
+												onChange={(e) =>
+													setFormData({
+														...formData,
+														currentPassword:
+															e.target.value,
+													})
+												}
 											/>
 										</div>
 										<div className="space-y-4">
@@ -174,7 +275,14 @@ export default function AdminProfile() {
 												<Input
 													id="newPassword"
 													type="password"
-													placeholder="Nhập mật khẩu mới"
+													value={formData.newPassword}
+													onChange={(e) =>
+														setFormData({
+															...formData,
+															newPassword:
+																e.target.value,
+														})
+													}
 												/>
 											</div>
 										</div>
@@ -183,8 +291,15 @@ export default function AdminProfile() {
 
 								{/* Action Buttons */}
 								<div className="flex gap-3 pt-4">
-									<Button type="submit" className="px-8">
-										Cập nhật thông tin
+									<Button
+										type="submit"
+										className="px-8"
+										onClick={handleUpdateProfile}
+										disabled={isUpdatingProfile}
+									>
+										{isUpdatingProfile
+											? 'Đang cập nhật...'
+											: 'Cập nhật thông tin'}
 									</Button>
 								</div>
 							</form>

@@ -61,3 +61,13 @@ export async function fetchHighestPriceProducts(
 	)
 	return response.data
 }
+/**
+ * Fetch product details
+ */
+export async function fetchProductDetail(id: string): Promise<any> {
+	const response = await apiClient.get<{
+		success: boolean
+		product: any
+	}>(API_ENDPOINTS.PRODUCTS.DETAIL(id))
+	return response.data.product
+}
