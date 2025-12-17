@@ -26,34 +26,6 @@ import { useAuth } from '@/contexts/AuthContext'
 export const Header = () => {
 	const { user, isAuthenticated, logout } = useAuth()
 	const navigate = useNavigate()
-	const categories = [
-		{
-			name: 'Điện tử',
-			subcategories: [
-				'Điện thoại di động',
-				'Máy tính xách tay',
-				'Máy tính bảng',
-				'Phụ kiện',
-			],
-		},
-		{
-			name: 'Thời trang',
-			subcategories: ['Giày', 'Đồng hồ', 'Túi xách', 'Trang sức'],
-		},
-		{
-			name: 'Gia dụng',
-			subcategories: [
-				'Nội thất',
-				'Đồ điện tử gia dụng',
-				'Nhà bếp',
-				'Trang trí',
-			],
-		},
-		{
-			name: 'Sưu tầm',
-			subcategories: ['Nghệ thuật', 'Đồ cổ', 'Tiền xu', 'Tem'],
-		},
-	]
 
 	// Get user initials for avatar
 	const getUserInitials = () => {
@@ -94,51 +66,15 @@ export const Header = () => {
 	return (
 		<header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
 			<div className="container flex h-16 items-center justify-between">
-				{/* Logo & Navigation */}
-				<div className="flex items-center gap-6">
-					<Link to="/" className="flex items-center space-x-2">
-						<div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-auction">
-							<span className="text-lg font-bold text-white">
-								A
-							</span>
-						</div>
-						<span className="hidden font-bold sm:inline-block text-gradient-auction">
-							AuctionHub
-						</span>
-					</Link>
-
-					<nav className="hidden md:flex items-center space-x-1">
-						{categories.map((category) => (
-							<DropdownMenu key={category.name}>
-								<DropdownMenuTrigger asChild>
-									<Button
-										variant="ghost"
-										className="h-10 px-4 py-2 text-sm font-medium focus-visible:ring-0 focus-visible:ring-offset-0 focus:outline-none"
-									>
-										{category.name}
-										<ChevronDown className="ml-1 h-3 w-3" />
-									</Button>
-								</DropdownMenuTrigger>
-								<DropdownMenuContent
-									align="start"
-									className="w-[200px]"
-									sideOffset={8}
-								>
-									{category.subcategories.map((sub) => (
-										<DropdownMenuItem key={sub} asChild>
-											<Link
-												to={`/category/${encodeURIComponent(sub)}`}
-												className="cursor-pointer"
-											>
-												{sub}
-											</Link>
-										</DropdownMenuItem>
-									))}
-								</DropdownMenuContent>
-							</DropdownMenu>
-						))}
-					</nav>
-				</div>
+				{/* Logo */}
+				<Link to="/" className="flex items-center space-x-2">
+					<div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-auction">
+						<span className="text-lg font-bold text-white">A</span>
+					</div>
+					<span className="hidden font-bold sm:inline-block text-gradient-auction">
+						AuctionHub
+					</span>
+				</Link>
 
 				{/* Search & User Actions */}
 				<div className="flex flex-1 items-center justify-end space-x-4">

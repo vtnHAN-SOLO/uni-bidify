@@ -62,6 +62,24 @@ export async function fetchHighestPriceProducts(
 	return response.data
 }
 /**
+ * Fetch products by category ID
+ */
+export async function fetchProductsByCategoryId(
+	categoryId: string
+): Promise<{
+	products: ProductDTO[]
+	categoryId: string
+	categoryName: string
+}> {
+	const response = await apiClient.get<{
+		products: ProductDTO[]
+		categoryId: string
+		categoryName: string
+	}>(API_ENDPOINTS.PRODUCTS.BY_CATEGORY_ID(categoryId))
+	return response.data
+}
+
+/**
  * Fetch product details
  */
 export async function fetchProductDetail(id: string): Promise<any> {
@@ -70,4 +88,16 @@ export async function fetchProductDetail(id: string): Promise<any> {
 		product: any
 	}>(API_ENDPOINTS.PRODUCTS.DETAIL(id))
 	return response.data.product
+}
+
+/**
+ * Fetch related products (same category, excluding current product)
+ */
+export async function fetchRelatedProducts(
+	id: string
+): Promise<{ products: ProductDTO[] }> {
+	const response = await apiClient.get<{ products: ProductDTO[] }>(
+		API_ENDPOINTS.PRODUCTS.RELATED(id)
+	)
+	return response.data
 }

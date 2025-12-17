@@ -44,7 +44,7 @@ export const ProductCard = ({
 	const isFavorite = isInWatchlist(id)
 
 	return (
-		<Link to={`/product/${id}`}>
+		<Link to={`/products/${id}`}>
 			<Card className="group overflow-hidden transition-all hover:shadow-elevated">
 				<div className="relative aspect-square overflow-hidden bg-muted">
 					<img

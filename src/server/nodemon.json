@@ -8,7 +8,9 @@
 		"dist"
 	],
 	"verbose": false,
-	"watch": ["./"],
+	"watch": ["src"],
+	"ext": "ts",
+	"exec": "npx tsc && node dist/index.js",
 	"env": {
 		"NODE_ENV": "development"
 	}

@@ -43,7 +43,10 @@ import {
 import { formatDistanceToNow } from 'date-fns'
 import { vi } from 'date-fns/locale'
 import { useToast } from '@/hooks/use-toast'
-import { fetchProductDetail } from '@/services/api/products.api'
+import {
+	fetchProductDetail,
+	fetchRelatedProducts,
+} from '@/services/api/products.api'
 import { mockBidHistory, mockQA, mockProducts } from '@/lib/mockData'
 import { Header } from '@/components/Header'
 import { AdminHeader } from './admin/AdminHeader'
@@ -71,6 +74,13 @@ const ProductDetail = () => {
 		enabled: !!id,
 	})
 
+	// ✅ Fetch related products
+	const { data: relatedProductsData } = useQuery({
+		queryKey: ['relatedProducts', id],
+		queryFn: () => fetchRelatedProducts(id!),
+		enabled: !!id,
+	})
+
 	// ✅ State management
 	const [selectedImage, setSelectedImage] = useState(0)
 	const [bidAmount, setBidAmount] = useState(0)
@@ -82,8 +92,8 @@ const ProductDetail = () => {
 	// Mock user role - replace with actual auth context
 	const isSeller = false
 
-	// ✅ Related products (filter out current product)
-	const relatedProducts = mockProducts.filter((p) => p.id !== id).slice(0, 5)
+	// ✅ Related products from API
+	const relatedProducts = relatedProductsData?.products || []
 
 	// ✅ Update bidAmount when product loads
 	useEffect(() => {
@@ -698,8 +708,25 @@ const ProductDetail = () => {
 							<div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
 								{relatedProducts.map((product) => (
 									<ProductCard
-										key={product.id}
-										{...product}
+										key={product._id}
+										id={product._id}
+										image={
+											product.images?.[0] ||
+											'/images/placeholder.jpg'
+										}
+										title={product.name}
+										currentPrice={product.currentPrice}
+										buyNowPrice={product.buyNowPrice}
+										highestBidder={
+											product.highestBidderName ||
+											'Chưa có'
+										}
+										bidCount={product.bidCount || 0}
+										endTime={new Date(product.endTime)}
+										isNew={product.isNew}
+										category={
+											product.categoryName || 'Khác'
+										}
 									/>
 								))}
 							</div>

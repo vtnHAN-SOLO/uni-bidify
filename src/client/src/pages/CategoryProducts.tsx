@@ -150,44 +150,39 @@
 // 	)
 // }
 import { useParams } from 'react-router-dom'
-import { Header } from '@/components/Header'
 import { ProductCard } from '@/components/ProductCard'
 // import { useProductsByCategoryName } from '@/app/containers/Products/useProductsByCategoryName'
-import { useProductsByCategoryName } from '@/services'
+import { useProductsByCategoryId } from '@/services'
 import { Badge } from '@/components/ui/data-display/badge'
+import MainLayout from '@/components/MainLayout'
 
 const CategoryProducts = () => {
-	// ⚠️ QUAN TRỌNG: phải decode từ URL
+	// ✅ UPDATED: Lấy categoryId từ URL (thay vì categoryName)
 	const { category } = useParams<{ category: string }>()
-	const decodedCategory = decodeURIComponent(category || '')
+	const categoryId = category || ''
 
-	// Truyền tên đã decode vào hook
-	const { data, isLoading, isError } =
-		useProductsByCategoryName(decodedCategory)
+	// ✅ UPDATED: Gọi useProductsByCategoryId thay vì useProductsByCategoryName
+	const { data, isLoading, isError } = useProductsByCategoryId(categoryId)
 
 	const products = data?.products ?? []
-	const categoryName = data?.categoryName ?? decodedCategory
+	const categoryName = data?.categoryName ?? 'Danh mục'
 
 	if (isLoading) {
 		return (
-			<div className="min-h-screen bg-background">
-				<Header />
-				<main className="container py-12">
-					<p>Đang tải sản phẩm...</p>
-				</main>
-			</div>
+			<MainLayout>
+				<p>Đang tải sản phẩm...</p>
+			</MainLayout>
 		)
 	}
 
-	if (isError) {
+	if (isError || !categoryId) {
 		return (
-			<div className="min-h-screen bg-background">
-				<Header />
-				<main className="container py-12 text-destructive">
+			<MainLayout>
+				<div className="text-destructive">
 					<p>Có lỗi khi tải sản phẩm theo danh mục.</p>
-					<p className="text-sm">Danh mục: {categoryName}</p>
-				</main>
-			</div>
+					<p className="text-sm">Danh mục ID: {categoryId}</p>
+				</div>
+			</MainLayout>
 		)
 	}
 
@@ -205,10 +200,8 @@ const CategoryProducts = () => {
 	})
 
 	return (
-		<div className="min-h-screen bg-background">
-			<Header />
-
-			<main className="container py-8 space-y-6">
+		<MainLayout>
+			<div className="space-y-6">
 				<div className="space-y-2">
 					<Badge variant="secondary">Danh mục</Badge>
 					<h1 className="text-3xl font-bold">{categoryName}</h1>
@@ -228,8 +221,8 @@ const CategoryProducts = () => {
 						))}
 					</div>
 				)}
-			</main>
-		</div>
+			</div>
+		</MainLayout>
 	)
 }
 

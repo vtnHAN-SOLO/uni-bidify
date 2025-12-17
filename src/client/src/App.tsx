@@ -72,7 +72,7 @@ const App = () => (
 									element={<ProductDetail />}
 								/>
 								<Route
-									path="/category/:categoryName"
+									path="/category/:category"
 									element={
 										<NonAdminRoute>
 											<CategoryProducts />
@@ -176,7 +176,7 @@ const App = () => (
 									}
 								/>
 								<Route
-									path="/seller/products/new"
+									path="/seller/create-product/"
 									element={
 										<ProtectedRoute
 											allowedRoles={[UserRole.SELLER]}

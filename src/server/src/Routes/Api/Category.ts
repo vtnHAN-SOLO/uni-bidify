@@ -3,6 +3,12 @@ import Category from '../../Models/Category.js'
 
 const router = express.Router()
 
+interface CategoryDoc {
+	_id: { toString: () => string }
+	name: string
+	parent: { _id: { toString: () => string }; name: string } | null
+}
+
 // POST /api/categories
 router.post('/', async (req: Request, res: Response) => {
 	try {
@@ -18,17 +24,101 @@ router.post('/', async (req: Request, res: Response) => {
 		})
 
 		return res.status(201).json(category)
-	} catch (error: any) {
+	} catch (error: unknown) {
 		return res
 			.status(500)
-			.json({ error: error.message || 'Could not create category' })
+			.json({ error: String(error) || 'Could not create category' })
 	}
 })
 
 // GET /api/categories - xem nhanh tất cả category
 router.get('/', async (_req: Request, res: Response) => {
-	const categories = await Category.find().lean()
-	res.json(categories)
+	try {
+		// Fetch all parent categories with their children
+		const parentCategories = (await Category.find({
+			parent: null,
+		}).lean()) as unknown as CategoryDoc[]
+		const childCategories = (await Category.find({
+			parent: { $ne: null },
+		})
+			.populate('parent', 'name')
+			.lean()) as unknown as CategoryDoc[]
+
+		// Group children by parent
+		const categoriesWithChildren = parentCategories.map(
+			(parent: CategoryDoc) => {
+				const children = childCategories.filter(
+					(child: CategoryDoc) => {
+						const childParentId =
+							child.parent?._id?.toString?.() ??
+							child.parent?.toString?.()
+						const parentId = parent._id.toString()
+						return childParentId === parentId
+					}
+				)
+
+				return {
+					...parent,
+					children,
+				}
+			}
+		)
+
+		res.json(categoriesWithChildren)
+	} catch (error: unknown) {
+		res.status(500).json({
+			error: String(error) || 'Could not fetch categories',
+		})
+	}
+})
+
+// GET /api/categories/:id - lấy chi tiết danh mục
+router.get('/:id', async (req: Request, res: Response) => {
+	try {
+		const { id } = req.params
+
+		const category = await Category.findById(id)
+			.populate('parent', 'name')
+			.lean()
+
+		if (!category) {
+			return res.status(404).json({ error: 'Category not found' })
+		}
+
+		return res.json(category)
+	} catch (error: unknown) {
+		return res.status(500).json({
+			error: String(error) || 'Could not fetch category',
+		})
+	}
+})
+
+// GET /api/categories/:id/children - lấy danh mục con
+router.get('/:id/children', async (req: Request, res: Response) => {
+	try {
+		const { id } = req.params
+
+		const childCategories = await Category.find({ parent: id })
+			.populate('parent', 'name')
+			.lean()
+
+		if (!childCategories || childCategories.length === 0) {
+			return res.json({
+				parentId: id,
+				children: [],
+				message: 'No child categories found',
+			})
+		}
+
+		return res.json({
+			parentId: id,
+			children: childCategories,
+		})
+	} catch (error: unknown) {
+		return res.status(500).json({
+			error: String(error) || 'Could not fetch child categories',
+		})
+	}
 })
 
 export default router

@@ -36,11 +36,41 @@ export type ProductDTO = {
 	updatedAt?: string
 }
 
+// Type for document
+interface ProductDoc {
+	_id: { toString: () => string }
+	name: string
+	description: string
+	images: string[]
+	startPrice: number
+	priceStep: number
+	currentPrice: number
+	buyNowPrice?: number
+	endTime: Date
+	startTime?: Date
+	createdAt?: Date
+	updatedAt?: Date
+	bidCount?: number
+	autoExtend?: boolean
+	isSold?: boolean
+	category?: { _id: { toString: () => string }; name: string }
+	seller?: {
+		_id: { toString: () => string }
+		firstName: string
+		lastName: string
+		email: string
+		positiveReviews: number
+		negativeReviews: number
+	}
+	highestBidder?: { firstName: string; lastName: string }
+}
+
 // ✅ HÀM MAP CHUNG (tái sử dụng cho tất cả routes)
-const mapDocToDTO = (doc: any): ProductDTO => {
+const mapDocToDTO = (doc: unknown): ProductDTO => {
+	const d = doc as ProductDoc
 	// ✅ Calculate seller rating
-	const sellerPositiveReviews = doc.seller?.positiveReviews || 0
-	const sellerNegativeReviews = doc.seller?.negativeReviews || 0
+	const sellerPositiveReviews = d.seller?.positiveReviews || 0
+	const sellerNegativeReviews = d.seller?.negativeReviews || 0
 	const sellerTotalRatings = sellerPositiveReviews + sellerNegativeReviews
 	const sellerRating =
 		sellerTotalRatings > 0
@@ -48,39 +78,39 @@ const mapDocToDTO = (doc: any): ProductDTO => {
 			: 0
 
 	return {
-		_id: doc._id.toString(),
-		name: doc.name,
-		description: doc.description,
-		images: doc.images,
-		startPrice: doc.startPrice,
-		priceStep: doc.priceStep,
-		currentPrice: doc.currentPrice,
-		buyNowPrice: doc.buyNowPrice,
-		endTime: doc.endTime.toISOString(),
-		startTime: doc.startTime ? doc.startTime.toISOString() : undefined,
-		createdAt: doc.createdAt ? doc.createdAt.toISOString() : undefined,
-		updatedAt: doc.updatedAt ? doc.updatedAt.toISOString() : undefined,
-		bidCount: doc.bidCount ?? 0,
-		autoExtend: doc.autoExtend ?? false,
-		isSold: doc.isSold ?? false,
+		_id: d._id.toString(),
+		name: d.name,
+		description: d.description,
+		images: d.images,
+		startPrice: d.startPrice,
+		priceStep: d.priceStep,
+		currentPrice: d.currentPrice,
+		buyNowPrice: d.buyNowPrice,
+		endTime: d.endTime.toISOString(),
+		startTime: d.startTime ? d.startTime.toISOString() : undefined,
+		createdAt: d.createdAt ? d.createdAt.toISOString() : undefined,
+		updatedAt: d.updatedAt ? d.updatedAt.toISOString() : undefined,
+		bidCount: d.bidCount ?? 0,
+		autoExtend: d.autoExtend ?? false,
+		isSold: d.isSold ?? false,
 
 		// ✅ Category info
-		categoryName: doc.category?.name || 'Chưa phân loại',
-		categoryId: doc.category?._id ? doc.category._id.toString() : undefined,
+		categoryName: d.category?.name || 'Chưa phân loại',
+		categoryId: d.category?._id ? d.category._id.toString() : undefined,
 
 		// ✅ Seller info
 		sellerName:
-			doc.seller?.firstName && doc.seller?.lastName
-				? `${doc.seller.firstName} ${doc.seller.lastName}`
+			d.seller?.firstName && d.seller?.lastName
+				? `${d.seller.firstName} ${d.seller.lastName}`
 				: 'Người bán',
-		sellerId: doc.seller?._id ? doc.seller._id.toString() : undefined,
-		sellerEmail: doc.seller?.email,
+		sellerId: d.seller?._id ? d.seller._id.toString() : undefined,
+		sellerEmail: d.seller?.email,
 		sellerRating,
 		sellerTotalRatings,
 
 		// ✅ Highest bidder info (masked)
-		highestBidderName: doc.highestBidder?.firstName
-			? `****${doc.highestBidder.firstName.slice(-3)}`
+		highestBidderName: d.highestBidder?.firstName
+			? `****${d.highestBidder.firstName.slice(-3)}`
 			: 'Chưa có',
 
 		isNew: false,
@@ -118,8 +148,8 @@ router.get('/home', async (req: Request, res: Response) => {
 			mostBids: mostBidsDocs.map(mapDocToDTO),
 			highestPrice: highestPriceDocs.map(mapDocToDTO),
 		})
-	} catch (error: any) {
-		res.status(500).json({ error: error.message || 'Server error' })
+	} catch (error: unknown) {
+		res.status(500).json({ error: String(error) || 'Server error' })
 	}
 })
 
@@ -145,8 +175,8 @@ router.get('/ending-soon', async (req: Request, res: Response) => {
 			page: Number(page),
 			totalPages: Math.ceil(total / Number(limit)),
 		})
-	} catch (error: any) {
-		res.status(500).json({ error: error.message || 'Server error' })
+	} catch (error: unknown) {
+		res.status(500).json({ error: String(error) || 'Server error' })
 	}
 })
 
@@ -171,8 +201,8 @@ router.get('/most-bids', async (req: Request, res: Response) => {
 			page: Number(page),
 			totalPages: Math.ceil(total / Number(limit)),
 		})
-	} catch (error: any) {
-		res.status(500).json({ error: error.message || 'Server error' })
+	} catch (error: unknown) {
+		res.status(500).json({ error: String(error) || 'Server error' })
 	}
 })
 
@@ -197,12 +227,70 @@ router.get('/highest-price', async (req: Request, res: Response) => {
 			page: Number(page),
 			totalPages: Math.ceil(total / Number(limit)),
 		})
-	} catch (error: any) {
-		res.status(500).json({ error: error.message || 'Server error' })
+	} catch (error: unknown) {
+		res.status(500).json({ error: String(error) || 'Server error' })
 	}
 })
 
+// ⚠️ QUAN TRỌNG: Routes với path cụ thể phải đặt trước routes với parameters
+// Nếu không, Express sẽ match /:id trước và xem 'by-category-id' là một ID
+
+// GET /api/products/by-category-id/:categoryId - lấy sản phẩm theo categoryId
+router.get(
+	'/by-category-id/:categoryId',
+	async (req: Request, res: Response) => {
+		try {
+			const { categoryId } = req.params
+
+			if (!categoryId) {
+				return res
+					.status(400)
+					.json({ error: 'Category ID is required.' })
+			}
+
+			// Debug log
+			console.log('🔍 Fetching products for categoryId:', categoryId)
+
+			// Verify category exists
+			const category = await Category.findById(categoryId).lean()
+			if (!category) {
+				return res.status(404).json({
+					error: 'Category not found.',
+					categoryId,
+				})
+			}
+
+			const products = await Product.find({ category: categoryId })
+				.populate('category', 'name')
+				.populate(
+					'seller',
+					'firstName lastName email positiveReviews negativeReviews'
+				)
+				.populate('highestBidder', 'firstName lastName')
+				.sort({ endTime: 1 })
+				.lean()
+
+			console.log(
+				`✅ Found ${products.length} products for category: ${category.name}`
+			)
+
+			return res.json({
+				products: products.map(mapDocToDTO),
+				categoryId,
+				categoryName: category.name,
+			})
+		} catch (error: unknown) {
+			console.error('❌ Error fetching products by category ID:', error)
+			return res.status(500).json({
+				error:
+					String(error) || 'Could not fetch products by category ID.',
+			})
+		}
+	}
+)
+
 // GET /api/products/by-category/:categoryName
+
 router.get(
 	'/by-category/:categoryName',
 	async (req: Request, res: Response) => {
@@ -238,11 +326,11 @@ router.get(
 				products: products.map(mapDocToDTO),
 				categoryName: decodedName,
 			})
-		} catch (error: any) {
+		} catch (error: unknown) {
+			const errorMsg =
+				error instanceof Error ? error.message : String(error)
 			return res.status(500).json({
-				error:
-					error.message ||
-					'Could not fetch products by category name.',
+				error: errorMsg || 'Could not fetch products by category name.',
 			})
 		}
 	}
@@ -270,10 +358,41 @@ router.get('/:id', async (req: Request, res: Response) => {
 			success: true,
 			product: mapDocToDTO(product), // ✅ Now includes seller info
 		})
-	} catch (error: any) {
+	} catch (error: unknown) {
 		return res
 			.status(500)
-			.json({ error: error.message || 'Could not fetch product.' })
+			.json({ error: String(error) || 'Could not fetch product.' })
+	}
+})
+
+// GET /api/products/:id/related - Get 5 other products in same category
+router.get('/:id/related', async (req: Request, res: Response) => {
+	try {
+		const { id } = req.params
+
+		const currentProduct = await Product.findById(id).lean()
+
+		if (!currentProduct) {
+			return res.status(404).json({ error: 'Product not found' })
+		}
+
+		const relatedProducts = await Product.find({
+			category: currentProduct.category,
+			_id: { $ne: id }, // Exclude current product
+		})
+			.populate('category', 'name')
+			.populate('highestBidder', 'firstName lastName')
+			.sort({ endTime: 1 })
+			.limit(5)
+			.lean()
+
+		return res.json({
+			products: relatedProducts.map(mapDocToDTO),
+		})
+	} catch (error: unknown) {
+		return res.status(500).json({
+			error: String(error) || 'Could not fetch related products',
+		})
 	}
 })
 
@@ -312,7 +431,7 @@ router.post(
 					.json({ error: 'Missing required fields.' })
 			}
 
-			const sellerId = (req.user as any)._id
+			const sellerId = (req.user as Record<string, unknown>)._id
 
 			const product = await Product.create({
 				name,
@@ -330,10 +449,10 @@ router.post(
 			})
 
 			return res.status(201).json(product)
-		} catch (error: any) {
+		} catch (error: unknown) {
 			return res
 				.status(500)
-				.json({ error: error.message || 'Could not create product.' })
+				.json({ error: String(error) || 'Could not create product.' })
 		}
 	}
 )

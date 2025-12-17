@@ -1,10 +1,10 @@
-import { Header } from '../components/Header'
 import { ProductCard } from '../components/ProductCard'
 import { Button } from '../components/ui/input/button'
 import { Badge } from '../components/ui/data-display/badge'
 import { TrendingUp, Clock, DollarSign, Sparkles } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useHomeProducts } from '../services/utils/products.hooks'
+import MainLayout from '../components/MainLayout'
 
 const Index = () => {
 	const { data, isLoading, isError } = useHomeProducts()
@@ -15,23 +15,19 @@ const Index = () => {
 
 	if (isLoading) {
 		return (
-			<div className="min-h-screen bg-background">
-				<Header />
-				<main className="container py-12">
-					<p>Đang tải sản phẩm...</p>
-				</main>
-			</div>
+			<MainLayout>
+				<p>Đang tải sản phẩm...</p>
+			</MainLayout>
 		)
 	}
 
 	if (isError) {
 		return (
-			<div className="min-h-screen bg-background">
-				<Header />
-				<main className="container py-12 text-destructive">
-					<p>Có lỗi khi tải danh sách sản phẩm. Vui lòng thử lại.</p>
-				</main>
-			</div>
+			<MainLayout>
+				<p className="text-destructive">
+					Có lỗi khi tải danh sách sản phẩm. Vui lòng thử lại.
+				</p>
+			</MainLayout>
 		)
 	}
 
@@ -49,11 +45,9 @@ const Index = () => {
 	})
 
 	return (
-		<div className="min-h-screen bg-background">
-			<Header />
-
+		<MainLayout>
 			{/* Hero Section */}
-			<section className="border-b bg-gradient-auction py-16 text-white">
+			<section className="border-b bg-gradient-auction py-16 text-white -mx-6 px-6">
 				<div className="container">
 					<div className="mx-auto max-w-3xl text-center space-y-6">
 						<Badge className="bg-white/20 text-white border-white/30 mb-4">
@@ -90,7 +84,8 @@ const Index = () => {
 				</div>
 			</section>
 
-			<main className="container py-12 space-y-16">
+			{/* Content Sections */}
+			<div className="space-y-16">
 				{/* Ending Soon Section */}
 				<section>
 					<div className="mb-6 flex items-center justify-between">
@@ -206,7 +201,7 @@ const Index = () => {
 						</div>
 					</div>
 				</section>
-			</main>
+			</div>
 
 			{/* Footer */}
 			<footer className="border-t bg-muted/50 py-12">
@@ -251,7 +246,7 @@ const Index = () => {
 					</div>
 				</div>
 			</footer>
-		</div>
+		</MainLayout>
 	)
 }
 

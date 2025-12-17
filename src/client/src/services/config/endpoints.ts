@@ -20,6 +20,8 @@ export const API_ENDPOINTS = {
 		HOME: '/products/home', // ✅ THÊM
 		BY_CATEGORY_NAME: (categoryName: string) =>
 			`/products/by-category/${encodeURIComponent(categoryName)}`, // ✅ THÊM
+		BY_CATEGORY_ID: (categoryId: string) =>
+			`/products/by-category-id/${categoryId}`, // ✅ MỚI
 		SEARCH: '/products/search',
 		ENDING_SOON: '/products/ending-soon',
 		MOST_BIDS: '/products/most-bids',
@@ -35,6 +37,7 @@ export const API_ENDPOINTS = {
 	CATEGORIES: {
 		BASE: '/categories',
 		DETAIL: (id: string) => `/categories/${id}`,
+		CHILDREN: (parentId: string) => `/categories/${parentId}/children`, // ✅ MỚI
 	},
 	// Watchlist
 	WATCHLIST: {

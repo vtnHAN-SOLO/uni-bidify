@@ -2,6 +2,7 @@ import { useQuery, UseQueryResult } from '@tanstack/react-query'
 import {
 	fetchHomeProducts,
 	fetchProductsByCategoryName,
+	fetchProductsByCategoryId,
 	fetchEndingSoonProducts,
 	fetchMostBidsProducts,
 	fetchHighestPriceProducts,
@@ -32,6 +33,21 @@ export function useProductsByCategoryName(
 		queryKey: ['products-by-category-name', categoryName],
 		queryFn: () => fetchProductsByCategoryName(categoryName),
 		enabled: !!categoryName, // Chỉ chạy khi có categoryName
+	})
+}
+
+/**
+ * Hook to fetch products by category ID
+ */
+export function useProductsByCategoryId(categoryId: string): UseQueryResult<{
+	products: any[]
+	categoryId: string
+	categoryName: string
+}> {
+	return useQuery({
+		queryKey: ['products-by-category-id', categoryId],
+		queryFn: () => fetchProductsByCategoryId(categoryId),
+		enabled: !!categoryId, // Chỉ chạy khi có categoryId
 	})
 }
 
