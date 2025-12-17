@@ -134,7 +134,7 @@ const App = () => (
 									}
 								/>
 								<Route
-									path="/watchlist"
+									path="/watch-list"
 									element={
 										<ProtectedRoute>
 											<NonAdminRoute>

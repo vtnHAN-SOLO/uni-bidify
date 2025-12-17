@@ -102,10 +102,10 @@ const Index = () => {
 								</p>
 							</div>
 						</div>
-						{/* ✅ CHỈ GIỮ 1 NÚT "XEM TẤT CẢ" */}
+						{/* ✅ CHỈ GIỮ 1 NÚT "XEM TẤT CẢ"
 						<Link to="/products/ending-soon">
 							<Button variant="ghost">Xem tất cả →</Button>
-						</Link>
+						</Link> */}
 					</div>
 
 					<div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
@@ -131,10 +131,10 @@ const Index = () => {
 								</p>
 							</div>
 						</div>
-						{/* ✅ CHỈ GIỮ 1 NÚT "XEM TẤT CẢ" */}
+						{/* ✅ CHỈ GIỮ 1 NÚT "XEM TẤT CẢ"
 						<Link to="/products/most-bids">
 							<Button variant="ghost">Xem tất cả →</Button>
-						</Link>
+						</Link> */}
 					</div>
 
 					<div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
@@ -160,10 +160,10 @@ const Index = () => {
 								</p>
 							</div>
 						</div>
-						{/* ✅ CHỈ GIỮ 1 NÚT "XEM TẤT CẢ" */}
+						{/* ✅ CHỈ GIỮ 1 NÚT "XEM TẤT CẢ"
 						<Link to="/products/highest-price">
 							<Button variant="ghost">Xem tất cả →</Button>
-						</Link>
+						</Link> */}
 					</div>
 
 					<div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-5">

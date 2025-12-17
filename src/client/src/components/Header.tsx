@@ -1,13 +1,14 @@
+import { useState } from 'react'
 import {
 	Search,
 	Heart,
 	User,
 	Menu,
 	ChevronDown,
+	ChevronRight,
 	LogOut,
-	Settings,
-	BookmarkIcon,
 	Bell,
+	LayoutGrid,
 } from 'lucide-react'
 import { Button } from '@/components/ui/input/button'
 import { Input } from '@/components/ui/input/input'
@@ -22,10 +23,24 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/data-display/avatar'
 import { Badge } from '@/components/ui/data-display/badge'
 import { useAuth } from '@/contexts/AuthContext'
+import { useCategories } from '@/hooks/useCategories'
 
 export const Header = () => {
 	const { user, isAuthenticated, logout } = useAuth()
 	const navigate = useNavigate()
+	const { categories, loading: categoriesLoading } = useCategories()
+	const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
+	const [searchQuery, setSearchQuery] = useState('')
+
+	// Handle search form submit
+	const handleSearch = (e: React.FormEvent) => {
+		e.preventDefault()
+		if (searchQuery.trim()) {
+			navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`)
+		} else {
+			navigate('/search')
+		}
+	}
 
 	// Get user initials for avatar
 	const getUserInitials = () => {
@@ -76,14 +91,101 @@ export const Header = () => {
 					</span>
 				</Link>
 
+				{/* Category Dropdown */}
+				<DropdownMenu>
+					<DropdownMenuTrigger asChild>
+						<Button
+							variant="ghost"
+							className="ml-4 gap-2 font-medium"
+						>
+							<LayoutGrid className="h-4 w-4" />
+							<span className="hidden sm:inline">Danh mục</span>
+							<ChevronDown className="h-4 w-4" />
+						</Button>
+					</DropdownMenuTrigger>
+					<DropdownMenuContent
+						align="start"
+						className="w-64 p-0"
+						sideOffset={8}
+					>
+						{categoriesLoading ? (
+							<div className="p-4 text-center text-sm text-muted-foreground">
+								Đang tải...
+							</div>
+						) : categories.length > 0 ? (
+							categories.map((cat) => {
+								const hasChildren =
+									cat.children && cat.children.length > 0
+								const isExpanded = expandedCategory === cat._id
+
+								return (
+									<div key={cat._id}>
+										<button
+											onClick={() => {
+												if (hasChildren) {
+													setExpandedCategory(
+														isExpanded
+															? null
+															: cat._id
+													)
+												}
+											}}
+											className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium hover:bg-accent transition-colors"
+										>
+											<span>{cat.name}</span>
+											{hasChildren && (
+												<ChevronRight
+													className={`h-4 w-4 transition-transform duration-200 ${
+														isExpanded
+															? 'rotate-90'
+															: ''
+													}`}
+												/>
+											)}
+										</button>
+
+										{/* Children categories */}
+										{hasChildren && isExpanded && (
+											<div className="bg-muted/50">
+												{cat.children!.map((child) => (
+													<DropdownMenuItem
+														key={child._id}
+														onClick={() =>
+															navigate(
+																`/category/${child._id}`
+															)
+														}
+														className="pl-8 py-2.5 cursor-pointer"
+													>
+														{child.name}
+													</DropdownMenuItem>
+												))}
+											</div>
+										)}
+									</div>
+								)
+							})
+						) : (
+							<div className="p-4 text-center text-sm text-muted-foreground">
+								Không có danh mục
+							</div>
+						)}
+					</DropdownMenuContent>
+				</DropdownMenu>
+
 				{/* Search & User Actions */}
 				<div className="flex flex-1 items-center justify-end space-x-4">
 					{/* Search Bar */}
-					<form className="hidden w-full max-w-sm md:flex items-center space-x-2">
+					<form
+						onSubmit={handleSearch}
+						className="hidden w-full max-w-sm md:flex items-center space-x-2"
+					>
 						<Input
 							type="search"
 							placeholder="Tìm kiếm sản phẩm đấu giá..."
 							className="h-9"
+							value={searchQuery}
+							onChange={(e) => setSearchQuery(e.target.value)}
 						/>
 						<Button type="submit" size="sm" className="h-9">
 							<Search className="h-4 w-4" />
