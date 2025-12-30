@@ -9,6 +9,9 @@ import {
 	LogOut,
 	Bell,
 	LayoutGrid,
+	Package,
+	Gavel,
+	Settings,
 } from 'lucide-react'
 import { Button } from '@/components/ui/input/button'
 import { Input } from '@/components/ui/input/input'
@@ -67,7 +70,7 @@ export const Header = () => {
 				return '/admin/profile'
 			case 'ROLE SELLER':
 				return '/seller/profile'
-			case 'ROLE BIDER':
+			case 'ROLE BIDDER':
 			default:
 				return '/profile'
 		}
@@ -272,6 +275,38 @@ export const Header = () => {
 											<User className="mr-2 h-4 w-4" />
 											<span>Hồ sơ của tôi</span>
 										</DropdownMenuItem>
+
+										{/* Seller-specific menu items */}
+										{user?.role === 'ROLE SELLER' && (
+											<>
+												<DropdownMenuItem
+													onClick={() => navigate('/seller/products')}
+													className="cursor-pointer"
+												>
+													<Package className="mr-2 h-4 w-4" />
+													<span>Quản lý sản phẩm</span>
+												</DropdownMenuItem>
+												<DropdownMenuItem
+													onClick={() => navigate('/seller/create-product')}
+													className="cursor-pointer"
+												>
+													<Gavel className="mr-2 h-4 w-4" />
+													<span>Đăng sản phẩm mới</span>
+												</DropdownMenuItem>
+											</>
+										)}
+
+										{/* Admin-specific menu items */}
+										{user?.role === 'ROLE ADMIN' && (
+											<DropdownMenuItem
+												onClick={() => navigate('/admin')}
+												className="cursor-pointer"
+											>
+												<Settings className="mr-2 h-4 w-4" />
+												<span>Quản trị hệ thống</span>
+											</DropdownMenuItem>
+										)}
+
 										<DropdownMenuSeparator />
 										<DropdownMenuItem
 											onClick={logout}

@@ -43,42 +43,7 @@ export interface UpdateProfileResponse {
 	}
 }
 
-// ============================================
-// Watchlist Types
-// ============================================
-
-export interface WatchlistProduct {
-	_id: string
-	name: string
-	description: string
-	images: string[]
-	startPrice: number
-	priceStep: number
-	currentPrice: number
-	buyNowPrice?: number
-	endTime: string
-	bidCount: number
-	categoryName: string
-	categoryId: string
-	sellerName: string
-	sellerId: string
-	highestBidderName: string
-	highestBidderId?: string
-	isNew: boolean
-}
-
-export interface WatchlistResponse {
-	success: boolean
-	watchlist: WatchlistProduct[]
-	count: number
-}
-
-export interface WatchlistToggleResponse {
-	success: boolean
-	message: string
-	isAdded: boolean
-	watchlistCount: number
-}
+// Note: Watchlist types are now defined in watchlist.api.ts
 
 // ============================================
 // Bidding History Types
@@ -106,6 +71,35 @@ export interface BiddingHistoryResponse {
 	biddingHistory: BiddingHistoryItem[]
 	count: number
 	total: number
+}
+
+// ============================================
+// Reviews Types
+// ============================================
+
+export interface ReviewItem {
+	_id: string
+	rating: 1 | -1
+	comment: string
+	reviewerName: string
+	reviewerId: string
+	productName: string
+	productImage?: string
+	productId: string
+	createdAt: string
+}
+
+export interface ReviewsSummary {
+	total: number
+	positive: number
+	negative: number
+	ratingPercentage: number
+}
+
+export interface ReviewsResponse {
+	success: boolean
+	reviews: ReviewItem[]
+	summary: ReviewsSummary
 }
 
 // ============================================

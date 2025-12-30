@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { Header } from '@/components/Header'
 import { Button } from '@/components/ui/input/button'
 import { Input } from '@/components/ui/input/input'
@@ -27,10 +27,11 @@ import {
 	Package,
 	Award,
 	ArrowLeft,
+	Loader2,
 } from 'lucide-react'
-import { mockProducts } from '@/lib/mockData'
 import { useAuth } from '@/contexts/AuthContext'
 import { userApi } from '@/services'
+import { fetchSellerProducts } from '@/services/api/products.api'
 import { toast } from 'sonner'
 import { useQuery } from '@tanstack/react-query'
 
@@ -48,9 +49,30 @@ export default function SellerProfile() {
 	const { user, isLoading } = useAuth()
 
 	// ✅ Fetch user profile data
-	const { data: profileData, isLoading: isLoadingProfile } = useQuery({
+	const { data: profileData } = useQuery({
 		queryKey: ['userProfile'],
 		queryFn: userApi.getProfile,
+		enabled: !!user && !isLoading,
+	})
+
+	// ✅ Fetch reviews received by user
+	const { data: reviewsData, isLoading: isLoadingReviews } = useQuery({
+		queryKey: ['userReviews'],
+		queryFn: () => userApi.getReviews(),
+		enabled: !!user && !isLoading,
+	})
+
+	// ✅ Fetch seller's active products (đang bán)
+	const { data: activeProductsData, isLoading: isLoadingActiveProducts } = useQuery({
+		queryKey: ['sellerProducts', 'active'],
+		queryFn: () => fetchSellerProducts(1, 50, 'active'),
+		enabled: !!user && !isLoading,
+	})
+
+	// ✅ Fetch seller's ended products (đã bán)
+	const { data: endedProductsData, isLoading: isLoadingEndedProducts } = useQuery({
+		queryKey: ['sellerProducts', 'ended'],
+		queryFn: () => fetchSellerProducts(1, 50, 'ended'),
 		enabled: !!user && !isLoading,
 	})
 
@@ -134,12 +156,12 @@ export default function SellerProfile() {
 										<div className="flex items-center gap-2">
 											<Star className="h-5 w-5 text-yellow-500 fill-yellow-500" />
 											<span className="font-semibold">
-												{profile?.ratingPercentage || 0}
+												{reviewsData?.summary?.ratingPercentage || 0}
 												%
 											</span>
 										</div>
 										<span className="text-sm text-muted-foreground">
-											{profile?.totalReviews || 0} đánh
+											{reviewsData?.summary?.total || 0} đánh
 											giá
 										</span>
 									</div>
@@ -148,7 +170,7 @@ export default function SellerProfile() {
 										<div className="flex items-center gap-2">
 											<ThumbsUp className="h-5 w-5 text-green-500" />
 											<span className="font-semibold">
-												{profile?.positiveReviews || 0}
+												{reviewsData?.summary?.positive || 0}
 											</span>
 										</div>
 										<span className="text-sm text-muted-foreground">
@@ -308,25 +330,33 @@ export default function SellerProfile() {
 											</CardTitle>
 										</div>
 										<CardDescription>
-											Các sản phẩm đang trong phiên đấu
-											giá
+											Các sản phẩm đang trong phiên đấu giá ({activeProductsData?.data?.total || 0} sản phẩm)
 										</CardDescription>
 									</CardHeader>
 									<CardContent>
-										{mockProducts.length === 0 ? (
+										{isLoadingActiveProducts ? (
+											<div className="flex justify-center py-8">
+												<Loader2 className="h-6 w-6 animate-spin" />
+											</div>
+										) : !activeProductsData?.data?.products?.length ? (
 											<p className="text-muted-foreground text-center py-8">
-												Bạn chưa có sản phẩm nào
+												Bạn chưa có sản phẩm nào đang bán
 											</p>
 										) : (
 											<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-												{mockProducts
-													.slice(0, 6)
-													.map((product) => (
-														<ProductCard
-															key={product.id}
-															{...product}
-														/>
-													))}
+												{activeProductsData.data.products.map((product) => (
+													<ProductCard
+														key={product._id}
+														id={product._id}
+														title={product.name}
+														image={product.images?.[0] || ''}
+														currentPrice={product.currentPrice}
+														endTime={new Date(product.endTime)}
+														bidCount={product.bidCount || 0}
+														highestBidder={product.highestBidderName || 'Chưa có'}
+														category={product.categoryName || 'Chưa phân loại'}
+													/>
+												))}
 											</div>
 										)}
 									</CardContent>
@@ -344,24 +374,33 @@ export default function SellerProfile() {
 											</CardTitle>
 										</div>
 										<CardDescription>
-											Các sản phẩm đã kết thúc đấu giá
+											Các sản phẩm đã kết thúc đấu giá ({endedProductsData?.data?.total || 0} sản phẩm)
 										</CardDescription>
 									</CardHeader>
 									<CardContent>
-										{mockProducts.length === 0 ? (
+										{isLoadingEndedProducts ? (
+											<div className="flex justify-center py-8">
+												<Loader2 className="h-6 w-6 animate-spin" />
+											</div>
+										) : !endedProductsData?.data?.products?.length ? (
 											<p className="text-muted-foreground text-center py-8">
 												Bạn chưa bán sản phẩm nào
 											</p>
 										) : (
 											<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-												{mockProducts
-													.slice(6, 10)
-													.map((product) => (
-														<ProductCard
-															key={product.id}
-															{...product}
-														/>
-													))}
+												{endedProductsData.data.products.map((product) => (
+													<ProductCard
+														key={product._id}
+														id={product._id}
+														title={product.name}
+														image={product.images?.[0] || ''}
+														currentPrice={product.currentPrice}
+														endTime={new Date(product.endTime)}
+														bidCount={product.bidCount || 0}
+														highestBidder={product.highestBidderName || 'Chưa có'}
+														category={product.categoryName || 'Chưa phân loại'}
+													/>
+												))}
 											</div>
 										)}
 									</CardContent>
@@ -375,7 +414,7 @@ export default function SellerProfile() {
 										<div className="flex items-center gap-2">
 											<Star className="h-5 w-5" />
 											<CardTitle>
-												Đánh giá từ người mua
+												Đánh giá từ người dùng
 											</CardTitle>
 										</div>
 										<CardDescription>
@@ -383,18 +422,31 @@ export default function SellerProfile() {
 										</CardDescription>
 									</CardHeader>
 									<CardContent>
-										<div className="space-y-4">
-											{profile && (
-												<div className="border-t pt-4">
-													<p className="text-sm text-muted-foreground mb-2">
-														Tổng hợp đánh giá
-													</p>
-													<div className="grid grid-cols-2 gap-4 mb-4">
+										<div className="space-y-6">
+											{/* Summary */}
+											{reviewsData?.summary && (
+												<div className="bg-muted/50 rounded-lg p-4">
+													<div className="flex items-center justify-between mb-4">
+														<p className="text-sm font-medium">
+															Tổng hợp đánh giá
+														</p>
+														<Badge variant="outline" className="text-lg px-3 py-1">
+															<Star className="h-4 w-4 fill-yellow-500 text-yellow-500 mr-1" />
+															{reviewsData.summary.ratingPercentage}%
+														</Badge>
+													</div>
+													<div className="grid grid-cols-3 gap-4 text-center">
+														<div>
+															<p className="text-2xl font-bold">
+																{reviewsData.summary.total}
+															</p>
+															<p className="text-sm text-muted-foreground">
+																Tổng số
+															</p>
+														</div>
 														<div>
 															<p className="text-2xl font-bold text-green-600">
-																{
-																	profile.positiveReviews
-																}
+																{reviewsData.summary.positive}
 															</p>
 															<p className="text-sm text-muted-foreground">
 																Tích cực
@@ -402,22 +454,94 @@ export default function SellerProfile() {
 														</div>
 														<div>
 															<p className="text-2xl font-bold text-red-600">
-																{
-																	profile.negativeReviews
-																}
+																{reviewsData.summary.negative}
 															</p>
 															<p className="text-sm text-muted-foreground">
 																Tiêu cực
 															</p>
 														</div>
 													</div>
-													{profile.totalReviews ===
-														0 && (
-														<p className="text-muted-foreground text-center py-4">
-															Bạn chưa có đánh giá
-															nào
-														</p>
-													)}
+												</div>
+											)}
+
+											{/* Reviews List */}
+											{isLoadingReviews ? (
+												<div className="flex justify-center py-8">
+													<Loader2 className="h-6 w-6 animate-spin" />
+												</div>
+											) : reviewsData?.reviews.length === 0 ? (
+												<p className="text-muted-foreground text-center py-8">
+													Bạn chưa có đánh giá nào
+												</p>
+											) : (
+												<div className="space-y-4">
+													<p className="text-sm font-medium border-b pb-2">
+														Chi tiết đánh giá ({reviewsData?.reviews.length})
+													</p>
+													{reviewsData?.reviews.map((review) => (
+														<div
+															key={review._id}
+															className="flex gap-4 p-4 border rounded-lg hover:bg-muted/30 transition-colors"
+														>
+															{/* Product Image */}
+															{review.productImage && (
+																<Link to={`/products/${review.productId}`}>
+																	<img
+																		src={review.productImage}
+																		alt={review.productName}
+																		className="w-16 h-16 object-cover rounded-lg flex-shrink-0"
+																	/>
+																</Link>
+															)}
+
+															{/* Review Content */}
+															<div className="flex-1 min-w-0">
+																<div className="flex items-start justify-between gap-2">
+																	<div>
+																		<Link
+																			to={`/products/${review.productId}`}
+																			className="font-medium hover:text-primary line-clamp-1"
+																		>
+																			{review.productName}
+																		</Link>
+																		<p className="text-sm text-muted-foreground">
+																			Từ: {review.reviewerName}
+																		</p>
+																	</div>
+																	<Badge
+																		variant={review.rating === 1 ? 'default' : 'destructive'}
+																		className={review.rating === 1 ? 'bg-green-600' : ''}
+																	>
+																		{review.rating === 1 ? (
+																			<>
+																				<ThumbsUp className="h-3 w-3 mr-1" />
+																				+1
+																			</>
+																		) : (
+																			<>
+																				<ThumbsDown className="h-3 w-3 mr-1" />
+																				-1
+																			</>
+																		)}
+																	</Badge>
+																</div>
+																{review.comment && (
+																	<p className="text-sm mt-2 text-muted-foreground italic">
+																		"{review.comment}"
+																	</p>
+																)}
+																<p className="text-xs text-muted-foreground mt-2">
+																	{new Date(review.createdAt).toLocaleDateString('vi-VN', {
+																		year: 'numeric',
+																		month: 'long',
+																		day: 'numeric',
+																		hour: '2-digit',
+																		minute: '2-digit',
+																	})}
+																</p>
+															</div>
+														</div>
+													))}
 												</div>
 											)}
 										</div>

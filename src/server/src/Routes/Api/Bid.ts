@@ -1,0 +1,988 @@
+import express, { Request, Response } from 'express'
+import Bid from '../../Models/Bid.js'
+import Product from '../../Models/Product.js'
+import User from '../../Models/User.js'
+import Auth from '../../Middleware/Auth.js'
+import { ROLES } from '../../Data/Constants/index.js'
+import { check as checkRole } from '../../Middleware/Role.js'
+
+const router = express.Router()
+
+// ==================== TYPES ====================
+
+interface AuthUser {
+	_id: string
+	email: string
+	role: string
+	positiveReviews: number
+	negativeReviews: number
+}
+
+interface BidDoc {
+	_id: { toString: () => string }
+	product: { toString: () => string } | ProductDoc
+	bidder: { toString: () => string } | BidderDoc
+	price: number
+	maxPrice?: number
+	createdAt: Date
+}
+
+interface BidderDoc {
+	_id: { toString: () => string }
+	firstName: string
+	lastName: string
+	positiveReviews: number
+	negativeReviews: number
+}
+
+interface ProductDoc {
+	_id: { toString: () => string }
+	name: string
+	description: string
+	images: string[]
+	startPrice: number
+	priceStep: number
+	currentPrice: number
+	buyNowPrice?: number
+	endTime: Date
+	startTime?: Date
+	autoExtend: boolean
+	autoExtendMinutes: number
+	extendDurationMinutes: number
+	isSold: boolean
+	bidCount: number
+	highestBidder?: { toString: () => string }
+	highestBidderMaxPrice: number
+	allowUnratedBidders: boolean
+	rejectedBidders: Array<{ toString: () => string }>
+	seller: { toString: () => string }
+	save: () => Promise<ProductDoc>
+}
+
+// ==================== HELPER FUNCTIONS ====================
+
+/**
+ * Calculate user rating percentage
+ * Rating = positive / (positive + negative) * 100
+ */
+const calculateRating = (positive: number, negative: number): number => {
+	const total = positive + negative
+	if (total === 0) return -1 // -1 indicates no ratings yet
+	return Math.round((positive / total) * 100)
+}
+
+/**
+ * Check if bidder is eligible to bid
+ * - Default: Must have >= 80% rating to bid
+ * - If allowUnratedBidders is true: Allow bidders with < 80% rating AND unrated bidders
+ */
+const canBidderParticipate = (
+	bidderPositive: number,
+	bidderNegative: number,
+	allowUnratedBidders: boolean
+): { allowed: boolean; reason?: string } => {
+	// If seller allows unrated/low-rating bidders, skip all checks
+	if (allowUnratedBidders) {
+		return { allowed: true }
+	}
+
+	const rating = calculateRating(bidderPositive, bidderNegative)
+
+	// No ratings yet - not allowed by default
+	if (rating === -1) {
+		return {
+			allowed: false,
+			reason: 'Bạn chưa có đánh giá. Người bán không cho phép người dùng chưa có đánh giá tham gia đấu giá.',
+		}
+	}
+
+	// Has ratings - check if rating >= 80% (default requirement)
+	if (rating < 80) {
+		return {
+			allowed: false,
+			reason: `Điểm đánh giá của bạn là ${rating}%. Sản phẩm này yêu cầu điểm đánh giá từ 80% trở lên để tham gia đấu giá.`,
+		}
+	}
+
+	return { allowed: true }
+}
+
+/**
+ * Check and apply auto-extension if bid is placed near end time
+ */
+const checkAutoExtension = async (product: ProductDoc): Promise<boolean> => {
+	if (!product.autoExtend) return false
+
+	const now = new Date()
+	const endTime = new Date(product.endTime)
+	const minutesUntilEnd = (endTime.getTime() - now.getTime()) / (1000 * 60)
+
+	// If within autoExtendMinutes before end, extend by extendDurationMinutes
+	if (minutesUntilEnd > 0 && minutesUntilEnd <= product.autoExtendMinutes) {
+		const newEndTime = new Date(
+			endTime.getTime() + product.extendDurationMinutes * 60 * 1000
+		)
+		product.endTime = newEndTime
+		await product.save()
+		console.log(
+			`⏰ Auto-extended auction ${product._id} to ${newEndTime.toISOString()}`
+		)
+		return true
+	}
+
+	return false
+}
+
+/**
+ * Process auto-bidding logic
+ * When a new bid comes in, the system automatically counter-bids for the current highest bidder
+ * up to their maxPrice
+ *
+ * Auto-bid rules:
+ * - The winner is the person with the higher maxPrice
+ * - The final price is: loser's maxPrice + priceStep (capped at winner's maxPrice)
+ * - If tie: first bidder (current holder) wins at their maxPrice
+ */
+const processAutoBid = async (
+	product: ProductDoc,
+	newBidderId: string,
+	newBidMaxPrice: number
+): Promise<{
+	finalPrice: number
+	winnerId: string
+	winnerMaxPrice: number
+	autoBidOccurred: boolean
+}> => {
+	const currentHighestBidderId = product.highestBidder?.toString()
+	const currentHighestMaxPrice = product.highestBidderMaxPrice || 0
+	const priceStep = product.priceStep
+	const currentPrice = product.currentPrice
+
+	// Case 1: No previous bidder - new bidder wins at current price + step
+	if (!currentHighestBidderId) {
+		return {
+			finalPrice: currentPrice + priceStep,
+			winnerId: newBidderId,
+			winnerMaxPrice: newBidMaxPrice,
+			autoBidOccurred: false,
+		}
+	}
+
+	// Case 2: Same bidder updating their max price
+	if (currentHighestBidderId === newBidderId) {
+		// Just update max price, keep current price
+		return {
+			finalPrice: currentPrice,
+			winnerId: newBidderId,
+			winnerMaxPrice: newBidMaxPrice,
+			autoBidOccurred: false,
+		}
+	}
+
+	// Case 3: Different bidder - auto-bid battle!
+	// Compare maxPrices to determine winner
+
+	if (newBidMaxPrice > currentHighestMaxPrice) {
+		// New bidder wins!
+		// Final price = currentHighestMaxPrice + priceStep (or newBidMaxPrice if that's lower)
+		const finalPrice = Math.min(
+			currentHighestMaxPrice + priceStep,
+			newBidMaxPrice
+		)
+		return {
+			finalPrice,
+			winnerId: newBidderId,
+			winnerMaxPrice: newBidMaxPrice,
+			autoBidOccurred: true,
+		}
+	}
+
+	if (currentHighestMaxPrice > newBidMaxPrice) {
+		// Current holder wins!
+		// Final price = newBidMaxPrice + priceStep (or currentHighestMaxPrice if that's lower)
+		const finalPrice = Math.min(
+			newBidMaxPrice + priceStep,
+			currentHighestMaxPrice
+		)
+		return {
+			finalPrice,
+			winnerId: currentHighestBidderId,
+			winnerMaxPrice: currentHighestMaxPrice,
+			autoBidOccurred: true,
+		}
+	}
+
+	// Tie case: both have same max - first bidder (current holder) wins at their maxPrice
+	return {
+		finalPrice: currentHighestMaxPrice,
+		winnerId: currentHighestBidderId,
+		winnerMaxPrice: currentHighestMaxPrice,
+		autoBidOccurred: true,
+	}
+}
+
+/**
+ * Mask username for public display
+ * "NguyenVanA" -> "****VanA"
+ */
+const maskUsername = (firstName: string, lastName: string): string => {
+	const fullName = `${firstName} ${lastName}`
+	if (fullName.length <= 4) {
+		return '****' + fullName
+	}
+	return '****' + fullName.slice(-4)
+}
+
+// ==================== ROUTES ====================
+
+/**
+ * POST /api/bids
+ * Place a new bid (auto-bidding)
+ *
+ * Body: { productId, maxPrice }
+ * - maxPrice: The maximum price the bidder is willing to pay
+ */
+router.post('/', Auth, async (req: Request, res: Response) => {
+	try {
+		const { productId, maxPrice } = req.body
+		const user = req.user as AuthUser
+
+		// Validate input
+		if (!productId || !maxPrice) {
+			return res.status(400).json({
+				success: false,
+				error: 'productId và maxPrice là bắt buộc.',
+			})
+		}
+
+		if (typeof maxPrice !== 'number' || maxPrice <= 0) {
+			return res.status(400).json({
+				success: false,
+				error: 'maxPrice phải là số dương.',
+			})
+		}
+
+		// Get product
+		const product = (await Product.findById(productId)) as ProductDoc | null
+		if (!product) {
+			return res.status(404).json({
+				success: false,
+				error: 'Sản phẩm không tồn tại.',
+			})
+		}
+
+		// Check if auction has ended
+		if (new Date() > new Date(product.endTime)) {
+			return res.status(400).json({
+				success: false,
+				error: 'Phiên đấu giá đã kết thúc.',
+			})
+		}
+
+		// Check if auction has started
+		if (product.startTime && new Date() < new Date(product.startTime)) {
+			return res.status(400).json({
+				success: false,
+				error: 'Phiên đấu giá chưa bắt đầu.',
+			})
+		}
+
+		// Check if product is already sold
+		if (product.isSold) {
+			return res.status(400).json({
+				success: false,
+				error: 'Sản phẩm đã được bán.',
+			})
+		}
+
+		// Check if bidder is the seller
+		if (product.seller.toString() === user._id.toString()) {
+			return res.status(400).json({
+				success: false,
+				error: 'Bạn không thể đấu giá sản phẩm của chính mình.',
+			})
+		}
+
+		// Check if bidder is rejected
+		const isRejected = product.rejectedBidders.some(
+			(id) => id.toString() === user._id.toString()
+		)
+		if (isRejected) {
+			return res.status(403).json({
+				success: false,
+				error: 'Bạn đã bị từ chối tham gia đấu giá sản phẩm này.',
+			})
+		}
+
+		// Get fresh user data for rating check
+		const bidder = await User.findById(user._id).lean()
+		if (!bidder) {
+			return res.status(404).json({
+				success: false,
+				error: 'Không tìm thấy thông tin người dùng.',
+			})
+		}
+
+		// Check bidder eligibility based on rating settings
+		const eligibility = canBidderParticipate(
+			bidder.positiveReviews || 0,
+			bidder.negativeReviews || 0,
+			product.allowUnratedBidders
+		)
+
+		if (!eligibility.allowed) {
+			return res.status(403).json({
+				success: false,
+				error: eligibility.reason,
+			})
+		}
+
+		// Calculate minimum required bid
+		const minimumBid = product.currentPrice + product.priceStep
+
+		// Check if maxPrice is sufficient
+		if (maxPrice < minimumBid) {
+			return res.status(400).json({
+				success: false,
+				error: `Giá tối đa phải ít nhất ${minimumBid.toLocaleString('vi-VN')} VNĐ (giá hiện tại + bước giá).`,
+				minimumBid,
+				currentPrice: product.currentPrice,
+				priceStep: product.priceStep,
+			})
+		}
+
+		// Process auto-bidding
+		const { finalPrice, winnerId, winnerMaxPrice, autoBidOccurred } = await processAutoBid(
+			product,
+			user._id.toString(),
+			maxPrice
+		)
+
+		const isWinner = winnerId === user._id.toString()
+
+		// Create bid record(s)
+		if (isWinner) {
+			// New bidder wins - create their bid record
+			await Bid.create({
+				product: productId,
+				bidder: user._id,
+				price: finalPrice,
+				maxPrice: maxPrice,
+			})
+		} else {
+			// Current holder wins via auto-bid
+			// 1. Create losing bid record for new bidder (at their max price)
+			await Bid.create({
+				product: productId,
+				bidder: user._id,
+				price: maxPrice, // Their max price (they got outbid)
+				maxPrice: maxPrice,
+			})
+
+			// 2. Create winning auto-bid record for current holder
+			await Bid.create({
+				product: productId,
+				bidder: winnerId,
+				price: finalPrice, // The winning price
+				maxPrice: winnerMaxPrice,
+			})
+		}
+
+		// Update product with winner info
+		product.currentPrice = finalPrice
+		product.highestBidder = winnerId as any
+		product.highestBidderMaxPrice = winnerMaxPrice // Use the winner's maxPrice
+		product.bidCount = (product.bidCount || 0) + (isWinner ? 1 : 2) // Add 2 if auto-bid occurred
+
+		// Check auto-extension
+		const wasExtended = await checkAutoExtension(product)
+
+		// Save product if not already saved by checkAutoExtension
+		if (!wasExtended) {
+			await product.save()
+		}
+
+		// Determine result message
+		let message: string
+
+		if (isWinner) {
+			message = autoBidOccurred
+				? `Bạn đã đặt giá thành công và đang dẫn đầu với ${finalPrice.toLocaleString('vi-VN')} VNĐ!`
+				: `Bạn đã đặt giá thành công với ${finalPrice.toLocaleString('vi-VN')} VNĐ!`
+		} else {
+			message = `Giá của bạn đã bị vượt qua bởi hệ thống tự động. Giá hiện tại: ${finalPrice.toLocaleString('vi-VN')} VNĐ.`
+		}
+
+		return res.status(201).json({
+			success: true,
+			message,
+			data: {
+				isWinner,
+				currentPrice: finalPrice,
+				yourMaxPrice: maxPrice,
+				wasExtended,
+				newEndTime: wasExtended ? product.endTime : undefined,
+				bidCount: product.bidCount,
+			},
+		})
+	} catch (error: unknown) {
+		console.error('❌ Error placing bid:', error)
+		return res.status(500).json({
+			success: false,
+			error: String(error) || 'Không thể đặt giá. Vui lòng thử lại.',
+		})
+	}
+})
+
+/**
+ * GET /api/bids/product/:productId
+ * Get bid history for a product
+ * - Public: masked usernames
+ * - Seller/Admin/Own bids: full names visible
+ */
+router.get('/product/:productId', async (req: Request, res: Response) => {
+	try {
+		const { productId } = req.params
+		const { page = 1, limit = 20 } = req.query
+
+		// Get current user if authenticated
+		let currentUserId: string | null = null
+		let currentUserRole: string | null = null
+
+		// Try to get user from auth (optional)
+		if (req.headers.authorization) {
+			try {
+				// This is a simplified check - in production you'd verify the JWT
+				const user = req.user as AuthUser | undefined
+				if (user) {
+					currentUserId = user._id
+					currentUserRole = user.role
+				}
+			} catch {
+				// Not authenticated - continue as guest
+			}
+		}
+
+		// Get product to check seller
+		const product = await Product.findById(productId).lean()
+		if (!product) {
+			return res.status(404).json({
+				success: false,
+				error: 'Sản phẩm không tồn tại.',
+			})
+		}
+
+		const sellerId = product.seller?.toString()
+		const isSellerOrAdmin =
+			currentUserId === sellerId || currentUserRole === ROLES.Admin
+
+		// Get bids
+		const bids = await Bid.find({ product: productId })
+			.populate('bidder', 'firstName lastName positiveReviews negativeReviews')
+			.sort({ createdAt: -1 })
+			.skip((Number(page) - 1) * Number(limit))
+			.limit(Number(limit))
+			.lean()
+
+		const total = await Bid.countDocuments({ product: productId })
+
+		// Map bids with appropriate masking
+		const mappedBids = (bids as unknown as BidDoc[]).map((bid) => {
+			const bidder = bid.bidder as BidderDoc
+			const bidderId = bidder._id.toString()
+			const isOwnBid = currentUserId === bidderId
+
+			// Show full name if: own bid, seller, or admin
+			const showFullName = isOwnBid || isSellerOrAdmin
+
+			return {
+				_id: bid._id.toString(),
+				price: bid.price,
+				bidderName: showFullName
+					? `${bidder.firstName} ${bidder.lastName}`
+					: maskUsername(bidder.firstName, bidder.lastName),
+				bidderId: showFullName ? bidderId : undefined,
+				bidderRating: calculateRating(
+					bidder.positiveReviews || 0,
+					bidder.negativeReviews || 0
+				),
+				createdAt: bid.createdAt.toISOString(),
+				isOwnBid,
+			}
+		})
+
+		return res.json({
+			success: true,
+			data: {
+				bids: mappedBids,
+				total,
+				page: Number(page),
+				totalPages: Math.ceil(total / Number(limit)),
+			},
+		})
+	} catch (error: unknown) {
+		console.error('❌ Error fetching bid history:', error)
+		return res.status(500).json({
+			success: false,
+			error: String(error) || 'Không thể lấy lịch sử đấu giá.',
+		})
+	}
+})
+
+/**
+ * GET /api/bids/user/participating
+ * Get user's active bids (auctions still ongoing)
+ */
+router.get('/user/participating', Auth, async (req: Request, res: Response) => {
+	try {
+		const user = req.user as AuthUser
+		const { page = 1, limit = 20 } = req.query
+		const now = new Date()
+
+		// Find all bids by this user
+		const userBids = await Bid.find({ bidder: user._id })
+			.distinct('product')
+			.lean()
+
+		// Get active products where user has bid
+		const activeProducts = await Product.find({
+			_id: { $in: userBids },
+			endTime: { $gt: now },
+			isSold: false,
+		})
+			.populate('category', 'name')
+			.populate('highestBidder', 'firstName lastName')
+			.sort({ endTime: 1 })
+			.skip((Number(page) - 1) * Number(limit))
+			.limit(Number(limit))
+			.lean()
+
+		const total = await Product.countDocuments({
+			_id: { $in: userBids },
+			endTime: { $gt: now },
+			isSold: false,
+		})
+
+		// Get user's highest bid for each product
+		const productsWithBidInfo = await Promise.all(
+			(activeProducts as any[]).map(async (product: any) => {
+				const userHighestBid = await Bid.findOne({
+					product: product._id,
+					bidder: user._id,
+				})
+					.sort({ maxPrice: -1 })
+					.lean()
+
+				const isWinning =
+					product.highestBidder?._id?.toString() === user._id.toString()
+
+				return {
+					_id: product._id.toString(),
+					name: product.name,
+					images: product.images,
+					currentPrice: product.currentPrice,
+					endTime: product.endTime,
+					bidCount: product.bidCount,
+					categoryName: (product.category as any)?.name || 'Chưa phân loại',
+					yourMaxBid: userHighestBid?.maxPrice || 0,
+					yourCurrentBid: userHighestBid?.price || 0,
+					isWinning,
+					status: isWinning ? 'Đang dẫn đầu' : 'Đã bị vượt',
+				}
+			})
+		)
+
+		return res.json({
+			success: true,
+			data: {
+				products: productsWithBidInfo,
+				total,
+				page: Number(page),
+				totalPages: Math.ceil(total / Number(limit)),
+			},
+		})
+	} catch (error: unknown) {
+		console.error('❌ Error fetching participating auctions:', error)
+		return res.status(500).json({
+			success: false,
+			error: String(error) || 'Không thể lấy danh sách đấu giá đang tham gia.',
+		})
+	}
+})
+
+/**
+ * GET /api/bids/user/won
+ * Get user's won auctions
+ */
+router.get('/user/won', Auth, async (req: Request, res: Response) => {
+	try {
+		const user = req.user as AuthUser
+		const { page = 1, limit = 20 } = req.query
+		const now = new Date()
+
+		// Find products where user is the winner or highest bidder after auction ended
+		const wonProducts = await Product.find({
+			$or: [
+				{ winner: user._id },
+				{
+					highestBidder: user._id,
+					endTime: { $lt: now },
+				},
+			],
+		})
+			.populate('category', 'name')
+			.populate('seller', 'firstName lastName email')
+			.sort({ endTime: -1 })
+			.skip((Number(page) - 1) * Number(limit))
+			.limit(Number(limit))
+			.lean()
+
+		const total = await Product.countDocuments({
+			$or: [
+				{ winner: user._id },
+				{
+					highestBidder: user._id,
+					endTime: { $lt: now },
+				},
+			],
+		})
+
+		const mappedProducts = (wonProducts as any[]).map((product: any) => ({
+			_id: product._id.toString(),
+			name: product.name,
+			images: product.images,
+			finalPrice: product.currentPrice,
+			endTime: product.endTime,
+			categoryName: product.category?.name || 'Chưa phân loại',
+			sellerName: product.seller
+				? `${product.seller.firstName} ${product.seller.lastName}`
+				: 'Người bán',
+			sellerEmail: product.seller?.email,
+			isSold: product.isSold,
+		}))
+
+		return res.json({
+			success: true,
+			data: {
+				products: mappedProducts,
+				total,
+				page: Number(page),
+				totalPages: Math.ceil(total / Number(limit)),
+			},
+		})
+	} catch (error: unknown) {
+		console.error('❌ Error fetching won auctions:', error)
+		return res.status(500).json({
+			success: false,
+			error: String(error) || 'Không thể lấy danh sách đấu giá đã thắng.',
+		})
+	}
+})
+
+/**
+ * DELETE /api/bids/:bidId
+ * Reject a bidder (Seller only)
+ * - Removes bidder from auction
+ * - If bidder is current highest, updates to next highest
+ * - Adds bidder to rejected list
+ */
+router.delete(
+	'/:bidId',
+	Auth,
+	checkRole(ROLES.Seller, ROLES.Admin),
+	async (req: Request, res: Response) => {
+		try {
+			const { bidId } = req.params
+			const user = req.user as AuthUser
+
+			// Get the bid
+			const bid = await Bid.findById(bidId).lean()
+			if (!bid) {
+				return res.status(404).json({
+					success: false,
+					error: 'Không tìm thấy bid.',
+				})
+			}
+
+			// Get the product
+			const product = (await Product.findById(bid.product)) as ProductDoc | null
+			if (!product) {
+				return res.status(404).json({
+					success: false,
+					error: 'Không tìm thấy sản phẩm.',
+				})
+			}
+
+			// Check if user is the seller (or admin)
+			if (
+				product.seller.toString() !== user._id.toString() &&
+				user.role !== ROLES.Admin
+			) {
+				return res.status(403).json({
+					success: false,
+					error: 'Chỉ người bán mới có quyền từ chối đấu giá.',
+				})
+			}
+
+			// Check if auction has ended
+			if (new Date() > new Date(product.endTime)) {
+				return res.status(400).json({
+					success: false,
+					error: 'Không thể từ chối sau khi phiên đấu giá đã kết thúc.',
+				})
+			}
+
+			const rejectedBidderId = bid.bidder.toString()
+
+			// Add to rejected list if not already
+			if (
+				!product.rejectedBidders.some(
+					(id) => id.toString() === rejectedBidderId
+				)
+			) {
+				product.rejectedBidders.push(rejectedBidderId as any)
+			}
+
+			// If rejected bidder is current highest bidder, find next highest
+			if (product.highestBidder?.toString() === rejectedBidderId) {
+				// Find the highest bid from non-rejected bidders
+				const nextHighestBid = await Bid.findOne({
+					product: product._id,
+					bidder: { $nin: product.rejectedBidders },
+				})
+					.sort({ price: -1 })
+					.populate('bidder', 'firstName lastName')
+					.lean()
+
+				if (nextHighestBid) {
+					product.currentPrice = nextHighestBid.price
+					product.highestBidder = nextHighestBid.bidder as any
+					product.highestBidderMaxPrice = nextHighestBid.maxPrice || 0
+				} else {
+					// No valid bids left - reset to start price
+					product.currentPrice = product.startPrice
+					product.highestBidder = undefined
+					product.highestBidderMaxPrice = 0
+				}
+			}
+
+			await product.save()
+
+			// Delete all bids from rejected bidder for this product
+			await Bid.deleteMany({
+				product: product._id,
+				bidder: rejectedBidderId,
+			})
+
+			return res.json({
+				success: true,
+				message: 'Đã từ chối người đấu giá thành công.',
+				data: {
+					newCurrentPrice: product.currentPrice,
+					newHighestBidder: product.highestBidder
+						? '****' +
+							(product.highestBidder as any).lastName?.slice(-3) ||
+							'***'
+						: null,
+				},
+			})
+		} catch (error: unknown) {
+			console.error('❌ Error rejecting bidder:', error)
+			return res.status(500).json({
+				success: false,
+				error: String(error) || 'Không thể từ chối người đấu giá.',
+			})
+		}
+	}
+)
+
+/**
+ * GET /api/bids/product/:productId/my-bid
+ * Get current user's bid info for a specific product
+ */
+router.get(
+	'/product/:productId/my-bid',
+	Auth,
+	async (req: Request, res: Response) => {
+		try {
+			const { productId } = req.params
+			const user = req.user as AuthUser
+
+			// Get user's highest bid for this product
+			const myBid = await Bid.findOne({
+				product: productId,
+				bidder: user._id,
+			})
+				.sort({ maxPrice: -1 })
+				.lean()
+
+			if (!myBid) {
+				return res.json({
+					success: true,
+					data: null,
+					message: 'Bạn chưa đặt giá cho sản phẩm này.',
+				})
+			}
+
+			// Get product to check if user is winning
+			const product = await Product.findById(productId).lean()
+			const isWinning =
+				product?.highestBidder?.toString() === user._id.toString()
+
+			return res.json({
+				success: true,
+				data: {
+					bidId: myBid._id,
+					price: myBid.price,
+					maxPrice: myBid.maxPrice,
+					isWinning,
+					createdAt: myBid.createdAt,
+				},
+			})
+		} catch (error: unknown) {
+			console.error('❌ Error fetching user bid:', error)
+			return res.status(500).json({
+				success: false,
+				error: String(error) || 'Không thể lấy thông tin bid của bạn.',
+			})
+		}
+	}
+)
+
+/**
+ * POST /api/bids/buy-now
+ * Buy now - instantly purchase the product at buyNowPrice
+ * Body: { productId }
+ */
+router.post(
+	'/buy-now',
+	Auth,
+	checkRole(ROLES.Bidder, ROLES.Seller),
+	async (req: Request, res: Response) => {
+		try {
+			const user = req.user as AuthUser
+			const { productId } = req.body
+
+			if (!productId) {
+				return res.status(400).json({
+					success: false,
+					error: 'Vui lòng cung cấp ID sản phẩm.',
+				})
+			}
+
+			// Get product
+			const product = (await Product.findById(productId)) as ProductDoc | null
+			if (!product) {
+				return res.status(404).json({
+					success: false,
+					error: 'Sản phẩm không tồn tại.',
+				})
+			}
+
+			// Check if product has buyNowPrice
+			if (!product.buyNowPrice) {
+				return res.status(400).json({
+					success: false,
+					error: 'Sản phẩm này không có giá mua ngay.',
+				})
+			}
+
+			// Check if auction has ended
+			if (new Date() >= product.endTime) {
+				return res.status(400).json({
+					success: false,
+					error: 'Phiên đấu giá đã kết thúc.',
+				})
+			}
+
+			// Check if already sold
+			if (product.isSold) {
+				return res.status(400).json({
+					success: false,
+					error: 'Sản phẩm đã được bán.',
+				})
+			}
+
+			// Check if user is the seller
+			if (product.seller.toString() === user._id.toString()) {
+				return res.status(400).json({
+					success: false,
+					error: 'Bạn không thể mua sản phẩm của chính mình.',
+				})
+			}
+
+			// Check if user is rejected
+			const isRejected = product.rejectedBidders.some(
+				(b) => b.toString() === user._id.toString()
+			)
+			if (isRejected) {
+				return res.status(403).json({
+					success: false,
+					error: 'Bạn đã bị từ chối tham gia đấu giá sản phẩm này.',
+				})
+			}
+
+			// Check bidder eligibility
+			const bidder = await User.findById(user._id).lean()
+			if (!bidder) {
+				return res.status(404).json({
+					success: false,
+					error: 'Không tìm thấy thông tin người dùng.',
+				})
+			}
+
+			const eligibility = canBidderParticipate(
+				bidder.positiveReviews || 0,
+				bidder.negativeReviews || 0,
+				product.allowUnratedBidders
+			)
+
+			if (!eligibility.allowed) {
+				return res.status(403).json({
+					success: false,
+					error: eligibility.reason,
+				})
+			}
+
+			// Execute buy now - update product
+			product.isSold = true
+			product.currentPrice = product.buyNowPrice
+			product.highestBidder = { toString: () => user._id.toString() } as any
+			product.endTime = new Date() // End auction immediately
+			await product.save()
+
+			// Create a bid record for buy now
+			await Bid.create({
+				product: productId,
+				bidder: user._id,
+				price: product.buyNowPrice,
+				maxPrice: product.buyNowPrice,
+			})
+
+			// Increment bid count
+			await Product.findByIdAndUpdate(productId, {
+				$inc: { bidCount: 1 },
+			})
+
+			console.log(`✅ Buy now successful: Product ${productId} sold to ${user._id} for ${product.buyNowPrice}`)
+
+			return res.json({
+				success: true,
+				message: 'Mua ngay thành công! Vui lòng tiến hành thanh toán.',
+				data: {
+					productId,
+					price: product.buyNowPrice,
+					productName: product.name,
+				},
+			})
+		} catch (error: unknown) {
+			console.error('❌ Buy now error:', error)
+			return res.status(500).json({
+				success: false,
+				error: String(error) || 'Không thể thực hiện mua ngay.',
+			})
+		}
+	}
+)
+
+export default router

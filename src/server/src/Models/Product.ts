@@ -19,12 +19,17 @@ const ProductSchema = new Schema(
 		currentPrice: { type: Number, required: true },
 		buyNowPrice: { type: Number },
 		highestBidder: { type: Schema.Types.ObjectId, ref: 'User' },
+		highestBidderMaxPrice: { type: Number, default: 0 }, // Store highest bidder's max auto-bid
 		startTime: { type: Date, default: Date.now },
 		endTime: { type: Date, required: true },
-		autoExtend: { type: Boolean, default: false },
+		autoExtend: { type: Boolean, default: true }, // Default to true for auto-extension
+		autoExtendMinutes: { type: Number, default: 5 }, // Minutes before end to trigger extension
+		extendDurationMinutes: { type: Number, default: 10 }, // Minutes to extend
 		isSold: { type: Boolean, default: false },
 		winner: { type: Schema.Types.ObjectId, ref: 'User' },
 		bidCount: { type: Number, default: 0 },
+		allowUnratedBidders: { type: Boolean, default: false }, // Allow unrated bidders AND bidders with < 80% rating
+		rejectedBidders: [{ type: Schema.Types.ObjectId, ref: 'User' }], // Blocked bidders list
 	},
 	{ timestamps: true }
 )

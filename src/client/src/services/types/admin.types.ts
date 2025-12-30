@@ -32,7 +32,7 @@ export interface AdminUser {
 	fullName: string
 	email: string
 	address?: string
-	role: 'ROLE BIDER' | 'ROLE SELLER' | 'ROLE ADMIN'
+	role: 'ROLE BIDDER' | 'ROLE SELLER' | 'ROLE ADMIN'
 	positiveReviews: number
 	negativeReviews: number
 	totalReviews: number
@@ -71,7 +71,7 @@ export interface CreateUserRequest {
 	email: string
 
 	address?: string
-	role?: 'ROLE BIDER' | 'ROLE SELLER' | 'ROLE ADMIN'
+	role?: 'ROLE BIDDER' | 'ROLE SELLER' | 'ROLE ADMIN'
 }
 
 // ============================================

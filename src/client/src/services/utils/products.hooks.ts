@@ -1,4 +1,4 @@
-import { useQuery, UseQueryResult } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, UseQueryResult } from '@tanstack/react-query'
 import {
 	fetchHomeProducts,
 	fetchProductsByCategoryName,
@@ -6,11 +6,16 @@ import {
 	fetchEndingSoonProducts,
 	fetchMostBidsProducts,
 	fetchHighestPriceProducts,
+	fetchSellerProducts,
+	deleteSellerProduct,
+	fetchProductDetail,
+	appendProductDescription,
 } from '../api/products.api'
 import type {
 	HomeProductsResponse,
 	ProductsByCategoryNameResponse,
 	ProductsListResponse,
+	ProductDTO,
 } from '../types/product.types'
 
 /**
@@ -78,5 +83,62 @@ export function useHighestPriceProducts(
 	return useQuery({
 		queryKey: ['highest-price-products', page, limit],
 		queryFn: () => fetchHighestPriceProducts(page, limit),
+	})
+}
+
+/**
+ * Hook to fetch seller's own products
+ */
+export function useSellerProducts(
+	page: number = 1,
+	limit: number = 20,
+	status?: 'active' | 'ended'
+) {
+	return useQuery({
+		queryKey: ['seller-products', page, limit, status],
+		queryFn: () => fetchSellerProducts(page, limit, status),
+	})
+}
+
+/**
+ * Hook to delete a product (seller)
+ */
+export function useDeleteProduct() {
+	const queryClient = useQueryClient()
+
+	return useMutation({
+		mutationFn: (productId: string) => deleteSellerProduct(productId),
+		onSuccess: () => {
+			// Invalidate seller products query to refetch
+			queryClient.invalidateQueries({ queryKey: ['seller-products'] })
+		},
+	})
+}
+
+/**
+ * Hook to fetch product detail by ID
+ */
+export function useProductDetail(productId: string) {
+	return useQuery({
+		queryKey: ['product-detail', productId],
+		queryFn: () => fetchProductDetail(productId),
+		enabled: !!productId,
+	})
+}
+
+/**
+ * Hook to append description to a product (seller)
+ */
+export function useAppendProductDescription() {
+	const queryClient = useQueryClient()
+
+	return useMutation({
+		mutationFn: ({ productId, content }: { productId: string; content: string }) =>
+			appendProductDescription(productId, content),
+		onSuccess: (_data, variables) => {
+			// Invalidate product detail query to refetch
+			queryClient.invalidateQueries({ queryKey: ['product-detail', variables.productId] })
+			queryClient.invalidateQueries({ queryKey: ['seller-products'] })
+		},
 	})
 }

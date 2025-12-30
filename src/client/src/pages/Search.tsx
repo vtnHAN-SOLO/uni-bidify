@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { Header } from '@/components/Header'
 import { ProductCard } from '@/components/ProductCard'
 import { Button } from '@/components/ui/input/button'
@@ -11,8 +12,9 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from '@/components/ui/input/select'
-import { Search as SearchIcon, ChevronLeft, ChevronRight } from 'lucide-react'
-import { mockProducts } from '@/lib/mockData'
+import { Search as SearchIcon, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
+import { searchProducts, SearchProductsParams } from '@/services/api/products.api'
+import { fetchCategories, Category } from '@/services/api/categories.api'
 
 export default function Search() {
 	const [searchParams, setSearchParams] = useSearchParams()
@@ -20,56 +22,79 @@ export default function Search() {
 	const [category, setCategory] = useState(
 		searchParams.get('category') || 'all'
 	)
-	const [sortBy, setSortBy] = useState('ending-soon')
+	const [sortBy, setSortBy] = useState<'endTime-desc' | 'price-asc' | 'price-desc'>('endTime-desc')
 	const [currentPage, setCurrentPage] = useState(1)
 	const productsPerPage = 12
+
+	// Fetch categories for dropdown
+	const { data: categories = [] } = useQuery({
+		queryKey: ['categories'],
+		queryFn: fetchCategories,
+	})
+
+	// Only use parent categories for search filter
+	const parentCategories = categories.map((parent: Category) => ({
+		id: parent._id,
+		name: parent.name,
+	}))
+
+	// Build search params for API
+	// Parse sortBy into sort field and order
+	const [sortField, sortOrder] = sortBy.split('-') as ['endTime' | 'price', 'asc' | 'desc']
+	const apiParams: SearchProductsParams = {
+		page: currentPage,
+		limit: productsPerPage,
+		sort: sortField === 'price' ? 'currentPrice' : 'endTime',
+		order: sortOrder,
+	}
+
+	const queryFromUrl = searchParams.get('q')
+	const categoryFromUrl = searchParams.get('category')
+
+	if (queryFromUrl) {
+		apiParams.q = queryFromUrl
+	}
+	if (categoryFromUrl && categoryFromUrl !== 'all') {
+		apiParams.categoryName = categoryFromUrl
+	}
+
+	// Fetch search results
+	const {
+		data: searchResult,
+		isLoading,
+		isFetching,
+	} = useQuery({
+		queryKey: ['searchProducts', apiParams],
+		queryFn: () => searchProducts(apiParams),
+	})
+
+	const products = searchResult?.data?.products || []
+	const totalProducts = searchResult?.data?.total || 0
+	const totalPages = searchResult?.data?.totalPages || 1
 
 	useEffect(() => {
 		setSearchQuery(searchParams.get('q') || '')
 		setCategory(searchParams.get('category') || 'all')
+		setCurrentPage(1)
 	}, [searchParams])
 
 	const handleSearch = (e: React.FormEvent) => {
 		e.preventDefault()
 		const params = new URLSearchParams()
-		if (searchQuery) params.set('q', searchQuery)
+		if (searchQuery.trim()) params.set('q', searchQuery.trim())
 		if (category !== 'all') params.set('category', category)
 		setSearchParams(params)
 		setCurrentPage(1)
 	}
 
-	// Filter products by search query and category
-	const filteredProducts = mockProducts.filter((product) => {
-		const matchesQuery =
-			!searchQuery ||
-			product.title.toLowerCase().includes(searchQuery.toLowerCase())
-		const matchesCategory =
-			category === 'all' ||
-			product.category.toLowerCase() === category.toLowerCase()
-		return matchesQuery && matchesCategory
-	})
+	const handleSortChange = (value: string) => {
+		setSortBy(value as 'endTime-desc' | 'price-asc' | 'price-desc')
+		setCurrentPage(1)
+	}
 
-	// Sort products
-	const sortedProducts = [...filteredProducts].sort((a, b) => {
-		if (sortBy === 'ending-soon') {
-			return a.endTime.getTime() - b.endTime.getTime()
-		} else if (sortBy === 'price-asc') {
-			return a.currentPrice - b.currentPrice
-		} else if (sortBy === 'price-desc') {
-			return b.currentPrice - a.currentPrice
-		}
-		return 0
-	})
-
-	// Pagination
-	const totalPages = Math.ceil(sortedProducts.length / productsPerPage)
-	const startIndex = (currentPage - 1) * productsPerPage
-	const paginatedProducts = sortedProducts.slice(
-		startIndex,
-		startIndex + productsPerPage
-	)
-
-	const categories = ['Điện tử', 'Thời trang', 'Gia dụng', 'Sưu tầm']
+	const handleCategoryChange = (value: string) => {
+		setCategory(value)
+	}
 
 	return (
 		<div className="min-h-screen bg-background">
@@ -96,21 +121,21 @@ export default function Search() {
 							</div>
 							<Select
 								value={category}
-								onValueChange={setCategory}
+								onValueChange={handleCategoryChange}
 							>
-								<SelectTrigger className="w-[200px] h-12">
+								<SelectTrigger className="w-[250px] h-12">
 									<SelectValue placeholder="Chọn danh mục" />
 								</SelectTrigger>
 								<SelectContent>
 									<SelectItem value="all">
 										Tất cả danh mục
 									</SelectItem>
-									{categories.map((cat) => (
+									{parentCategories.map((cat) => (
 										<SelectItem
-											key={cat}
-											value={cat.toLowerCase()}
+											key={cat.id}
+											value={cat.name}
 										>
-											{cat}
+											{cat.name}
 										</SelectItem>
 									))}
 								</SelectContent>
@@ -126,35 +151,41 @@ export default function Search() {
 				<div className="mb-6">
 					<div className="flex items-center justify-between mb-4">
 						<div>
-							<p className="text-muted-foreground">
-								{sortedProducts.length > 0 ? (
-									<>
-										Tìm thấy{' '}
-										<span className="font-semibold text-foreground">
-											{sortedProducts.length}
-										</span>{' '}
-										kết quả
-									</>
-								) : (
-									'Không tìm thấy sản phẩm nào'
-								)}
-							</p>
+							{isLoading ? (
+								<p className="text-muted-foreground">
+									Đang tìm kiếm...
+								</p>
+							) : (
+								<p className="text-muted-foreground">
+									{totalProducts > 0 ? (
+										<>
+											Tìm thấy{' '}
+											<span className="font-semibold text-foreground">
+												{totalProducts}
+											</span>{' '}
+											kết quả
+										</>
+									) : (
+										'Không tìm thấy sản phẩm nào'
+									)}
+								</p>
+							)}
 						</div>
 
-						{sortedProducts.length > 0 && (
+						{totalProducts > 0 && (
 							<div className="flex items-center gap-2">
 								<span className="text-sm text-muted-foreground">
 									Sắp xếp:
 								</span>
 								<Select
 									value={sortBy}
-									onValueChange={setSortBy}
+									onValueChange={handleSortChange}
 								>
 									<SelectTrigger className="w-[200px]">
 										<SelectValue />
 									</SelectTrigger>
 									<SelectContent>
-										<SelectItem value="ending-soon">
+										<SelectItem value="endTime-desc">
 											Sắp kết thúc
 										</SelectItem>
 										<SelectItem value="price-asc">
@@ -170,11 +201,33 @@ export default function Search() {
 					</div>
 				</div>
 
-				{paginatedProducts.length > 0 ? (
+				{isLoading ? (
+					<div className="flex items-center justify-center py-12">
+						<Loader2 className="h-8 w-8 animate-spin text-primary" />
+						<span className="ml-2">Đang tải...</span>
+					</div>
+				) : products.length > 0 ? (
 					<>
-						<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
-							{paginatedProducts.map((product) => (
-								<ProductCard key={product.id} {...product} />
+						<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8 relative">
+							{isFetching && !isLoading && (
+								<div className="absolute inset-0 bg-background/50 flex items-center justify-center z-10">
+									<Loader2 className="h-8 w-8 animate-spin text-primary" />
+								</div>
+							)}
+							{products.map((product) => (
+								<ProductCard
+									key={product._id}
+									id={product._id}
+									title={product.name}
+									currentPrice={product.currentPrice}
+									image={product.images[0] || ''}
+									endTime={new Date(product.endTime)}
+									bidCount={product.bidCount || 0}
+									isNew={product.isNew}
+									highestBidder={product.highestBidderName || 'Chưa có'}
+									category={product.categoryName || ''}
+									buyNowPrice={product.buyNowPrice}
+								/>
 							))}
 						</div>
 
@@ -188,14 +241,27 @@ export default function Search() {
 											Math.max(1, p - 1)
 										)
 									}
-									disabled={currentPage === 1}
+									disabled={currentPage === 1 || isFetching}
 								>
 									<ChevronLeft className="h-4 w-4" />
 								</Button>
 
 								{Array.from(
-									{ length: totalPages },
-									(_, i) => i + 1
+									{ length: Math.min(totalPages, 5) },
+									(_, i) => {
+										// Show pages around current page
+										let page: number
+										if (totalPages <= 5) {
+											page = i + 1
+										} else if (currentPage <= 3) {
+											page = i + 1
+										} else if (currentPage >= totalPages - 2) {
+											page = totalPages - 4 + i
+										} else {
+											page = currentPage - 2 + i
+										}
+										return page
+									}
 								).map((page) => (
 									<Button
 										key={page}
@@ -205,6 +271,7 @@ export default function Search() {
 												: 'outline'
 										}
 										onClick={() => setCurrentPage(page)}
+										disabled={isFetching}
 										className="min-w-[40px]"
 									>
 										{page}
@@ -219,7 +286,7 @@ export default function Search() {
 											Math.min(totalPages, p + 1)
 										)
 									}
-									disabled={currentPage === totalPages}
+									disabled={currentPage === totalPages || isFetching}
 								>
 									<ChevronRight className="h-4 w-4" />
 								</Button>

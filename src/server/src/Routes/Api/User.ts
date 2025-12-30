@@ -3,6 +3,7 @@ import Auth from '../../Middleware/Auth.js'
 import User from '../../Models/User.js'
 import Product from '../../Models/Product.js'
 import Bid from '../../Models/Bid.js'
+import Review from '../../Models/Review.js'
 import bcrypt from 'bcryptjs'
 
 const router = express.Router()
@@ -363,6 +364,68 @@ router.get('/bidding-history', Auth, async (req: Request, res: Response) => {
 		console.error('Get bidding history error:', error)
 		return res.status(500).json({
 			error: error.message || 'Failed to get bidding history.',
+		})
+	}
+})
+
+/**
+ * GET /api/users/reviews
+ * Get reviews received by current user
+ */
+router.get('/reviews', Auth, async (req: Request, res: Response) => {
+	try {
+		const userId = (req.user as any)._id
+
+		// Get all reviews where current user is the reviewed user
+		const reviews = await Review.find({ reviewedUser: userId })
+			.populate({
+				path: 'reviewer',
+				model: 'User',
+				select: 'firstName lastName',
+			})
+			.populate({
+				path: 'product',
+				model: 'Product',
+				select: 'name images',
+			})
+			.sort({ createdAt: -1 })
+			.lean()
+
+		const reviewsDTO = reviews.map((review: any) => ({
+			_id: review._id.toString(),
+			rating: review.rating,
+			comment: review.comment,
+			reviewerName: review.reviewer
+				? `${review.reviewer.firstName} ${review.reviewer.lastName}`
+				: 'Người dùng ẩn danh',
+			reviewerId: review.reviewer?._id.toString(),
+			productName: review.product?.name || 'Sản phẩm đã xóa',
+			productImage: review.product?.images?.[0],
+			productId: review.product?._id.toString(),
+			createdAt: review.createdAt.toISOString(),
+		}))
+
+		// Calculate summary
+		const positiveCount = reviews.filter((r: any) => r.rating === 1).length
+		const negativeCount = reviews.filter((r: any) => r.rating === -1).length
+		const totalCount = reviews.length
+		const ratingPercentage =
+			totalCount > 0 ? Math.round((positiveCount / totalCount) * 100) : 0
+
+		return res.json({
+			success: true,
+			reviews: reviewsDTO,
+			summary: {
+				total: totalCount,
+				positive: positiveCount,
+				negative: negativeCount,
+				ratingPercentage,
+			},
+		})
+	} catch (error: any) {
+		console.error('Get reviews error:', error)
+		return res.status(500).json({
+			error: error.message || 'Failed to get reviews.',
 		})
 	}
 })

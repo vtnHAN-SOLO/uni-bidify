@@ -30,6 +30,8 @@ export interface ProductDetailDTO extends ProductDTO {
 	sellerEmail?: string
 	sellerRating: number
 	sellerTotalRatings: number
+	// ✅ Highest bidder ID for redirect
+	highestBidderId?: string
 }
 
 export type ProductDetailResponse = {
@@ -37,37 +39,8 @@ export type ProductDetailResponse = {
 	product: ProductDetailDTO
 }
 
-// ✅ ADD: Type for Bid History
-export type BidHistoryItem = {
-	id: string
-	bidder: string
-	bidderName: string
-	amount: number
-	time: string
-}
-
-export type BidHistoryResponse = {
-	success: boolean
-	bidHistory: BidHistoryItem[]
-	count: number
-}
-
-// ✅ ADD: Type for Q&A
-export type QAItem = {
-	id: string
-	questioner: string
-	questionerName: string
-	question: string
-	askedAt: string
-	answer?: string
-	answeredAt?: string
-}
-
-export type QAResponse = {
-	success: boolean
-	qaList: QAItem[]
-	count: number
-}
+// Note: BidHistoryItem and BidHistoryResponse are now defined in bids.api.ts
+// Note: Q&A types are now defined in questions.api.ts
 
 export type HomeProductsResponse = {
 	endingSoon: ProductDTO[]

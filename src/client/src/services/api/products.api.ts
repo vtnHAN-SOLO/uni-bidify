@@ -101,3 +101,121 @@ export async function fetchRelatedProducts(
 	)
 	return response.data
 }
+
+/**
+ * Fetch seller's own products
+ */
+export async function fetchSellerProducts(
+	page: number = 1,
+	limit: number = 20,
+	status?: 'active' | 'ended'
+): Promise<{
+	success: boolean
+	data: {
+		products: ProductDTO[]
+		total: number
+		page: number
+		totalPages: number
+	}
+}> {
+	const response = await apiClient.get<{
+		success: boolean
+		data: {
+			products: ProductDTO[]
+			total: number
+			page: number
+			totalPages: number
+		}
+	}>(API_ENDPOINTS.PRODUCTS.SELLER_PRODUCTS, {
+		params: { page, limit, status },
+	})
+	return response.data
+}
+
+/**
+ * Delete a product (seller only, no bids yet)
+ */
+export async function deleteSellerProduct(
+	id: string
+): Promise<{ success: boolean; message: string }> {
+	const response = await apiClient.delete<{
+		success: boolean
+		message: string
+	}>(API_ENDPOINTS.PRODUCTS.DELETE(id))
+	return response.data
+}
+
+/**
+ * Append additional description to a product (seller only)
+ */
+export async function appendProductDescription(
+	id: string,
+	content: string
+): Promise<{ success: boolean; message: string; description: string }> {
+	const response = await apiClient.put<{
+		success: boolean
+		message: string
+		description: string
+	}>(API_ENDPOINTS.PRODUCTS.APPEND_DESCRIPTION(id), { content })
+	return response.data
+}
+
+/**
+ * Create a new product (seller only)
+ */
+export interface CreateProductData {
+	name: string
+	description: string
+	categoryId: string
+	images: string[]
+	startPrice: number
+	priceStep: number
+	currentPrice: number
+	buyNowPrice?: number
+	endTime: string
+	autoExtend?: boolean
+	allowUnratedBidders?: boolean
+}
+
+export async function createProduct(
+	data: CreateProductData
+): Promise<{ success: boolean; message: string; product: any }> {
+	const response = await apiClient.post<{
+		success: boolean
+		message: string
+		product: any
+	}>(API_ENDPOINTS.PRODUCTS.BASE, data)
+	return response.data
+}
+
+/**
+ * Search products with filters
+ */
+export interface SearchProductsParams {
+	q?: string
+	categoryName?: string // Search by category name (not ID)
+	sort?: 'endTime' | 'currentPrice'
+	order?: 'asc' | 'desc'
+	page?: number
+	limit?: number
+}
+
+export interface SearchProductsResponse {
+	success: boolean
+	data: {
+		products: ProductDTO[]
+		total: number
+		page: number
+		totalPages: number
+	}
+}
+
+export async function searchProducts(
+	params: SearchProductsParams
+): Promise<SearchProductsResponse> {
+	const response = await apiClient.get<SearchProductsResponse>(
+		API_ENDPOINTS.PRODUCTS.SEARCH,
+		{ params }
+	)
+	return response.data
+}

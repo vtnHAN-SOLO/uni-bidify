@@ -4,10 +4,13 @@ import {
 	UserProfile,
 	UpdateProfileRequest,
 	UpdateProfileResponse,
-	WatchlistResponse,
-	WatchlistToggleResponse,
 	BiddingHistoryResponse,
+	ReviewsResponse,
 } from '../types/user.types'
+import {
+	WatchlistResponse,
+	WatchlistActionResponse as WatchlistToggleResponse,
+} from './watchlist.api'
 
 export const userApi = {
 	/**
@@ -88,5 +91,14 @@ export const userApi = {
 	 */
 	getLostAuctions: async (): Promise<BiddingHistoryResponse> => {
 		return userApi.getBiddingHistory('lost')
+	},
+
+	/**
+	 * GET /api/users/reviews
+	 * Get reviews received by current user
+	 */
+	getReviews: async (): Promise<ReviewsResponse> => {
+		const response = await apiClient.get(API_ENDPOINTS.USERS.REVIEWS)
+		return response.data
 	},
 }

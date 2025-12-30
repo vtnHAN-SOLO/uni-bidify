@@ -88,7 +88,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 					case 'ROLE SELLER':
 						navigate('/seller/products')
 						break
-					case 'ROLE BIDER': // Typo của backend
+					case 'ROLE BIDDER':
 						navigate('/')
 						break
 					default:

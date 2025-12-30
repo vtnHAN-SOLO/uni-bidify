@@ -61,7 +61,7 @@ export default function AdminUsers() {
 		lastName: '',
 		email: '',
 		address: '',
-		role: 'ROLE BIDER',
+		role: 'ROLE BIDDER',
 	})
 	const queryClient = useQueryClient()
 	const { toast } = useToast()
@@ -151,7 +151,7 @@ export default function AdminUsers() {
 				lastName: '',
 				email: '',
 				address: '',
-				role: 'ROLE BIDER',
+				role: 'ROLE BIDDER',
 			})
 			toast({
 				title: 'Thành công',
@@ -234,7 +234,6 @@ export default function AdminUsers() {
 			case 'ROLE SELLER':
 				return { label: 'Người bán', variant: 'default' as const }
 			case 'ROLE BIDDER':
-			case 'ROLE BIDER': // Support cả 2 trường hợp
 				return { label: 'Người mua', variant: 'secondary' as const }
 			default:
 				return { label: 'Không xác định', variant: 'outline' as const }
@@ -533,7 +532,7 @@ export default function AdminUsers() {
 													<select
 														value={
 															newUserData.role ||
-															'ROLE BIDER'
+															'ROLE BIDDER'
 														}
 														onChange={(e) =>
 															setNewUserData({
@@ -544,7 +543,7 @@ export default function AdminUsers() {
 														}
 														className="w-full px-3 py-2 border rounded-md bg-background text-foreground"
 													>
-														<option value="ROLE BIDER">
+														<option value="ROLE BIDDER">
 															Người mua
 														</option>
 														<option value="ROLE SELLER">

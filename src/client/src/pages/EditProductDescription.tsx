@@ -11,31 +11,57 @@ import {
 } from '@/components/ui/data-display/card'
 import { Textarea } from '@/components/ui/input/textarea'
 import { Label } from '@/components/ui/input/label'
-import { ArrowLeft } from 'lucide-react'
-import { mockProducts } from '@/lib/mockData'
-import { useToast } from '@/hooks/use-toast'
+import { ArrowLeft, Loader2 } from 'lucide-react'
+import { useProductDetail, useAppendProductDescription } from '@/services/utils/products.hooks'
+import { toast } from 'sonner'
 
 export default function EditProductDescription() {
 	const { id } = useParams()
 	const navigate = useNavigate()
-	const { toast } = useToast()
-	const product = mockProducts.find((p) => p.id === id)
+	const { data: product, isLoading, error } = useProductDetail(id || '')
+	const appendDescriptionMutation = useAppendProductDescription()
 
 	const [additionalDescription, setAdditionalDescription] = useState('')
 
-	if (!product) {
-		return <div>Không tìm thấy sản phẩm</div>
+	if (isLoading) {
+		return (
+			<div className="min-h-screen bg-background">
+				<Header />
+				<div className="flex justify-center items-center py-20">
+					<Loader2 className="h-8 w-8 animate-spin text-primary" />
+				</div>
+			</div>
+		)
 	}
 
-	const handleSubmit = (e: React.FormEvent) => {
+	if (error || !product) {
+		return (
+			<div className="min-h-screen bg-background">
+				<Header />
+				<div className="container py-8 text-center">
+					<p className="text-destructive mb-4">Không tìm thấy sản phẩm</p>
+					<Button onClick={() => navigate('/seller/products')}>
+						<ArrowLeft className="h-4 w-4 mr-2" />
+						Quay lại
+					</Button>
+				</div>
+			</div>
+		)
+	}
+
+	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault()
 
-		toast({
-			title: 'Đã cập nhật mô tả',
-			description: 'Thông tin mô tả đã được thêm vào sản phẩm',
-		})
-
-		navigate('/seller/products')
+		try {
+			await appendDescriptionMutation.mutateAsync({
+				productId: id!,
+				content: additionalDescription,
+			})
+			toast.success('Đã cập nhật mô tả thành công')
+			navigate('/seller/products')
+		} catch (err: any) {
+			toast.error(err?.response?.data?.error || 'Không thể cập nhật mô tả')
+		}
 	}
 
 	return (
@@ -67,16 +93,16 @@ export default function EditProductDescription() {
 									<Label>Sản phẩm</Label>
 									<div className="flex gap-4 p-4 border rounded-lg bg-muted/50">
 										<img
-											src={product.image}
-											alt={product.title}
+											src={product.images?.[0] || '/images/placeholder.jpg'}
+											alt={product.name}
 											className="w-20 h-20 object-cover rounded"
 										/>
 										<div>
 											<h3 className="font-semibold">
-												{product.title}
+												{product.name}
 											</h3>
 											<p className="text-sm text-muted-foreground">
-												{product.category}
+												{product.categoryName || 'Chưa phân loại'}
 											</p>
 										</div>
 									</div>
@@ -114,16 +140,26 @@ export default function EditProductDescription() {
 								</div>
 
 								<div className="flex gap-4">
-									<Button type="submit" size="lg">
-										Cập nhật mô tả
+									<Button
+										type="submit"
+										size="lg"
+										disabled={appendDescriptionMutation.isPending}
+									>
+										{appendDescriptionMutation.isPending ? (
+											<>
+												<Loader2 className="h-4 w-4 mr-2 animate-spin" />
+												Đang cập nhật...
+											</>
+										) : (
+											'Cập nhật mô tả'
+										)}
 									</Button>
 									<Button
 										type="button"
 										variant="outline"
 										size="lg"
-										onClick={() =>
-											navigate('/seller/products')
-										}
+										onClick={() => navigate('/seller/products')}
+										disabled={appendDescriptionMutation.isPending}
 									>
 										Hủy
 									</Button>

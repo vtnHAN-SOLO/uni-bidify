@@ -22,7 +22,7 @@ const UserSchema = new Schema(
 		address: { type: String },
 		role: {
 			type: String,
-			default: ROLES.Bider,
+			default: ROLES.Bidder,
 			enum: Object.values(ROLES),
 		},
 		isActive: { type: Boolean, default: true },

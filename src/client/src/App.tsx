@@ -144,7 +144,7 @@ const App = () => (
 									}
 								/>
 								<Route
-									path="/order-completion"
+									path="/order-completion/:id"
 									element={
 										<ProtectedRoute>
 											<NonAdminRoute>

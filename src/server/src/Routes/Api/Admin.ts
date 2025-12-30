@@ -540,7 +540,7 @@ router.post(
 				email: email.toLowerCase(),
 				address: address || '',
 				password: defaultPassword,
-				role: role || ROLES.Bider,
+				role: role || ROLES.Bidder,
 				isVerified: true,
 				isActive: true,
 			})

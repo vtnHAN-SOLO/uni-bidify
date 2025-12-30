@@ -17,28 +17,28 @@ export const API_ENDPOINTS = {
 	PRODUCTS: {
 		BASE: '/products',
 		DETAIL: (id: string) => `/products/${id}`,
-		HOME: '/products/home', // ✅ THÊM
+		HOME: '/products/home',
 		BY_CATEGORY_NAME: (categoryName: string) =>
-			`/products/by-category/${encodeURIComponent(categoryName)}`, // ✅ THÊM
+			`/products/by-category/${encodeURIComponent(categoryName)}`,
 		BY_CATEGORY_ID: (categoryId: string) =>
-			`/products/by-category-id/${categoryId}`, // ✅ MỚI
+			`/products/by-category-id/${categoryId}`,
 		SEARCH: '/products/search',
 		ENDING_SOON: '/products/ending-soon',
 		MOST_BIDS: '/products/most-bids',
 		HIGHEST_PRICE: '/products/highest-price',
 		RELATED: (id: string) => `/products/${id}/related`,
-		BID_HISTORY: (id: string) => `/products/${id}/bid-history`,
-		QUESTIONS: (id: string) => `/products/${id}/questions`,
-		APPEND_DESCRIPTION: (id: string) =>
-			`/products/${id}/append-description`,
-		REJECT_BID: (id: string) => `/products/${id}/reject-bid`,
+		APPEND_DESCRIPTION: (id: string) => `/products/${id}/description`,
+		DELETE: (id: string) => `/products/${id}`,
+		SELLER_PRODUCTS: '/products/seller/my-products',
 	},
+
 	// Categories
 	CATEGORIES: {
 		BASE: '/categories',
 		DETAIL: (id: string) => `/categories/${id}`,
-		CHILDREN: (parentId: string) => `/categories/${parentId}/children`, // ✅ MỚI
+		CHILDREN: (parentId: string) => `/categories/${parentId}/children`,
 	},
+
 	// Watchlist
 	WATCHLIST: {
 		GET_ALL: '/watchlist',
@@ -47,38 +47,51 @@ export const API_ENDPOINTS = {
 		CHECK: (productId: string) => `/watchlist/check/${productId}`,
 	},
 
-	// Bids
+	// Bids (Auto-bidding system)
 	BIDS: {
 		BASE: '/bids',
-		VALIDATE: '/bids/validate',
+		PLACE_BID: '/bids',
+		BUY_NOW: '/bids/buy-now',
+		PRODUCT_HISTORY: (productId: string) => `/bids/product/${productId}`,
+		MY_BID: (productId: string) => `/bids/product/${productId}/my-bid`,
+		USER_PARTICIPATING: '/bids/user/participating',
+		USER_WON: '/bids/user/won',
+		REJECT: (bidId: string) => `/bids/${bidId}`,
+	},
+
+	// Questions (Q&A for products)
+	QUESTIONS: {
+		BASE: '/questions',
+		ASK: '/questions',
+		ANSWER: (questionId: string) => `/questions/${questionId}/answer`,
+		PRODUCT_QUESTIONS: (productId: string) =>
+			`/questions/product/${productId}`,
+		SELLER_QUESTIONS: '/questions/seller',
+	},
+
+	// Orders (Post-auction workflow)
+	ORDERS: {
+		BASE: '/orders',
+		PRODUCT_ORDER: (productId: string) => `/orders/product/${productId}`,
+		SUBMIT_PAYMENT: (orderId: string) => `/orders/${orderId}/payment`,
+		CONFIRM_SHIPPING: (orderId: string) => `/orders/${orderId}/shipping`,
+		CONFIRM_RECEIVED: (orderId: string) => `/orders/${orderId}/received`,
+		CANCEL: (orderId: string) => `/orders/${orderId}/cancel`,
+		RATE: (orderId: string) => `/orders/${orderId}/rate`,
+		SEND_MESSAGE: (orderId: string) => `/orders/${orderId}/message`,
+		GET_MESSAGES: (orderId: string) => `/orders/${orderId}/messages`,
+		MY_ORDERS: '/orders/my-orders',
 	},
 
 	// Users
 	USERS: {
 		PROFILE: '/users/profile',
 		RATINGS: '/users/ratings',
+		REVIEWS: '/users/reviews',
 		WATCHLIST: '/users/watchlist',
 		BIDDING_HISTORY: '/users/bidding-history',
 		CHANGE_PASSWORD: '/users/change-password',
 		UPGRADE_REQUEST: '/users/upgrade-request',
-	},
-
-	// Ratings
-	RATINGS: {
-		BASE: '/ratings',
-		UPDATE: (id: string) => `/ratings/${id}`,
-	},
-
-	// Transactions
-	TRANSACTIONS: {
-		BASE: '/transactions',
-		DETAIL: (id: string) => `/transactions/${id}`,
-		PAYMENT_PROOF: (id: string) => `/transactions/${id}/payment-proof`,
-		CONFIRM_PAYMENT: (id: string) => `/transactions/${id}/confirm-payment`,
-		CONFIRM_DELIVERY: (id: string) =>
-			`/transactions/${id}/confirm-delivery`,
-		CANCEL: (id: string) => `/transactions/${id}/cancel`,
-		MESSAGES: (id: string) => `/transactions/${id}/messages`,
 	},
 
 	// Admin

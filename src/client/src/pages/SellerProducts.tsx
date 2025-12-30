@@ -1,20 +1,50 @@
 import { Link } from 'react-router-dom'
 import { Header } from '@/components/Header'
 import { Button } from '@/components/ui/input/button'
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from '@/components/ui/data-display/card'
+import { Card, CardContent } from '@/components/ui/data-display/card'
 import { Badge } from '@/components/ui/data-display/badge'
-import { Plus, Edit, Trash2, Eye } from 'lucide-react'
-import { mockProducts } from '@/lib/mockData'
+import { Plus, Edit, Trash2, Eye, Loader2 } from 'lucide-react'
+import { useSellerProducts, useDeleteProduct } from '@/services/utils/products.hooks'
+import { useState } from 'react'
+import { toast } from 'sonner'
 
 export default function SellerProducts() {
-	// Mock seller products
-	const sellerProducts = mockProducts.slice(0, 6)
+	const [page] = useState(1)
+	const { data, isLoading, error } = useSellerProducts(page, 20)
+	const deleteProductMutation = useDeleteProduct()
+
+	const handleDelete = async (productId: string, productName: string, bidCount: number) => {
+		if (bidCount > 0) {
+			toast.error('Không thể xóa sản phẩm đã có người đấu giá')
+			return
+		}
+
+		if (!confirm(`Bạn có chắc chắn muốn xóa sản phẩm "${productName}"?`)) {
+			return
+		}
+
+		try {
+			await deleteProductMutation.mutateAsync(productId)
+			toast.success('Đã xóa sản phẩm thành công')
+		} catch (err: any) {
+			toast.error(err?.response?.data?.error || 'Không thể xóa sản phẩm')
+		}
+	}
+
+	const formatTimeRemaining = (endTime: string) => {
+		const end = new Date(endTime)
+		const now = new Date()
+		const diff = end.getTime() - now.getTime()
+
+		if (diff <= 0) return 'Đã kết thúc'
+
+		const hours = Math.floor(diff / (1000 * 60 * 60))
+		if (hours >= 24) {
+			const days = Math.floor(hours / 24)
+			return `${days}d`
+		}
+		return `${hours}h`
+	}
 
 	return (
 		<div className="min-h-screen bg-background">
@@ -23,9 +53,7 @@ export default function SellerProducts() {
 			<main className="container py-8">
 				<div className="flex items-center justify-between mb-8">
 					<div>
-						<h1 className="text-3xl font-bold mb-2">
-							Quản lý sản phẩm
-						</h1>
+						<h1 className="text-3xl font-bold mb-2">Quản lý sản phẩm</h1>
 						<p className="text-muted-foreground">
 							Danh sách sản phẩm đang đấu giá của bạn
 						</p>
@@ -38,104 +66,132 @@ export default function SellerProducts() {
 					</Link>
 				</div>
 
-				<div className="grid gap-4">
-					{sellerProducts.map((product) => (
-						<Card key={product.id}>
-							<CardContent className="p-6">
-								<div className="flex gap-6">
-									<img
-										src={product.image}
-										alt={product.title}
-										className="w-32 h-32 object-cover rounded-lg"
-									/>
+				{isLoading && (
+					<div className="flex justify-center py-12">
+						<Loader2 className="h-8 w-8 animate-spin text-primary" />
+					</div>
+				)}
 
-									<div className="flex-1">
-										<div className="flex items-start justify-between mb-2">
-											<div>
-												<h3 className="font-semibold text-lg mb-1">
-													{product.title}
-												</h3>
-												<Badge variant="secondary">
-													{product.category}
-												</Badge>
-											</div>
-											<div className="flex gap-2">
-												<Button
-													variant="outline"
-													size="sm"
-												>
-													<Eye className="h-4 w-4 mr-1" />
-													Xem
-												</Button>
-												<Link
-													to={`/seller/products/${product.id}/edit-description`}
-												>
-													<Button
-														variant="outline"
-														size="sm"
+				{error && (
+					<div className="text-center py-12 text-destructive">
+						Không thể tải danh sách sản phẩm. Vui lòng thử lại.
+					</div>
+				)}
+
+				{data && data.data.products.length === 0 && (
+					<div className="text-center py-12">
+						<p className="text-muted-foreground mb-4">
+							Bạn chưa có sản phẩm nào đang đấu giá
+						</p>
+						<Link to="/seller/create-product">
+							<Button>
+								<Plus className="h-5 w-5 mr-2" />
+								Đăng sản phẩm đầu tiên
+							</Button>
+						</Link>
+					</div>
+				)}
+
+				{data && data.data.products.length > 0 && (
+					<div className="grid gap-4">
+						{data.data.products.map((product) => (
+							<Card key={product._id}>
+								<CardContent className="p-6">
+									<div className="flex gap-6">
+										<img
+											src={product.images?.[0] || '/images/placeholder.jpg'}
+											alt={product.name}
+											className="w-32 h-32 object-cover rounded-lg"
+										/>
+
+										<div className="flex-1">
+											<div className="flex items-start justify-between mb-2">
+												<div>
+													<h3 className="font-semibold text-lg mb-1">
+														{product.name}
+													</h3>
+													<Badge variant="secondary">
+														{product.categoryName || 'Chưa phân loại'}
+													</Badge>
+												</div>
+												<div className="flex gap-2">
+													<Link to={`/products/${product._id}`}>
+														<Button variant="outline" size="sm">
+															<Eye className="h-4 w-4 mr-1" />
+															Xem
+														</Button>
+													</Link>
+													<Link
+														to={`/seller/products/${product._id}/edit`}
 													>
-														<Edit className="h-4 w-4 mr-1" />
-														Sửa mô tả
+														<Button variant="outline" size="sm">
+															<Edit className="h-4 w-4 mr-1" />
+															Sửa mô tả
+														</Button>
+													</Link>
+
+													<Button
+														variant="destructive"
+														size="sm"
+														onClick={() =>
+															handleDelete(
+																product._id,
+																product.name,
+																product.bidCount || 0
+															)
+														}
+														disabled={deleteProductMutation.isPending}
+													>
+														{deleteProductMutation.isPending ? (
+															<Loader2 className="h-4 w-4 animate-spin" />
+														) : (
+															<Trash2 className="h-4 w-4" />
+														)}
 													</Button>
-												</Link>
+												</div>
+											</div>
 
-												<Button
-													variant="destructive"
-													size="sm"
-												>
-													<Trash2 className="h-4 w-4" />
-												</Button>
-											</div>
-										</div>
-
-										<div className="grid grid-cols-4 gap-4 mt-4">
-											<div>
-												<p className="text-sm text-muted-foreground">
-													Giá hiện tại
-												</p>
-												<p className="text-lg font-bold text-primary">
-													{product.currentPrice.toLocaleString(
-														'vi-VN'
-													)}
-													₫
-												</p>
-											</div>
-											<div>
-												<p className="text-sm text-muted-foreground">
-													Số lượt đấu giá
-												</p>
-												<p className="text-lg font-semibold">
-													{product.bidCount}
-												</p>
-											</div>
-											<div>
-												<p className="text-sm text-muted-foreground">
-													Người đấu giá cao nhất
-												</p>
-												<p className="text-lg font-semibold">
-													{product.highestBidder}
-												</p>
-											</div>
-											<div>
-												<p className="text-sm text-muted-foreground">
-													Thời gian còn lại
-												</p>
-												<p className="text-lg font-semibold">
-													{Math.floor(
-														(product.endTime.getTime() -
-															Date.now()) /
-															(1000 * 60 * 60)
-													)}
-													h
-												</p>
+											<div className="grid grid-cols-4 gap-4 mt-4">
+												<div>
+													<p className="text-sm text-muted-foreground">
+														Giá hiện tại
+													</p>
+													<p className="text-lg font-bold text-primary">
+														{product.currentPrice.toLocaleString('vi-VN')}₫
+													</p>
+												</div>
+												<div>
+													<p className="text-sm text-muted-foreground">
+														Số lượt đấu giá
+													</p>
+													<p className="text-lg font-semibold">
+														{product.bidCount || 0}
+													</p>
+												</div>
+												<div>
+													<p className="text-sm text-muted-foreground">
+														Người đấu giá cao nhất
+													</p>
+													<p className="text-lg font-semibold">
+														{product.highestBidderName || 'Chưa có'}
+													</p>
+												</div>
+												<div>
+													<p className="text-sm text-muted-foreground">
+														Thời gian còn lại
+													</p>
+													<p className="text-lg font-semibold">
+														{formatTimeRemaining(product.endTime)}
+													</p>
+												</div>
 											</div>
 										</div>
 									</div>
-								</div>
-							</CardContent>
-						</Card>
-					))}
-				</div>
+								</CardContent>
+							</Card>
+						))}
+					</div>
+				)}
 			</main>
 		</div>
 	)

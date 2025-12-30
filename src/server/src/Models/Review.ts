@@ -1,8 +1,8 @@
 import { Schema, model } from 'mongoose'
-import { RATING } from '../Data/Constants/index.js'
 
 /**
- * Mongoose schema for the Category model.
+ * Mongoose schema for the Review model.
+ * Rating: 1 = Positive, -1 = Negative
  */
 const ReviewSchema = new Schema(
 	{
@@ -17,7 +17,7 @@ const ReviewSchema = new Schema(
 			ref: 'User',
 			required: true,
 		},
-		rating: { type: Number, enum: Object.values(RATING), required: true },
+		rating: { type: Number, enum: [1, -1], required: true },
 		comment: { type: String, required: true },
 	},
 	{ timestamps: true }

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { Header } from '@/components/Header'
 import { Button } from '@/components/ui/input/button'
 import { Input } from '@/components/ui/input/input'
@@ -27,10 +27,11 @@ import {
 	Gavel,
 	Award,
 	ArrowRight,
+	Loader2,
 } from 'lucide-react'
-import { mockProducts } from '@/lib/mockData'
 import { useAuth } from '@/contexts/AuthContext'
 import { userApi } from '@/services'
+import { getParticipatingAuctions, getWonAuctions } from '@/services/api/bids.api'
 import { toast } from 'sonner'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -65,17 +66,24 @@ export default function BidderProfile() {
 		enabled: !!user && !isLoading,
 	})
 
-	// ✅ Fetch bidding history
-	const { data: biddingData, isLoading: isLoadingBidding } = useQuery({
-		queryKey: ['biddingHistory', 'active'],
-		queryFn: () => userApi.getBiddingHistory('active'),
+	// ✅ Fetch participating auctions (using new bids API)
+	const { data: participatingData, isLoading: isLoadingBidding } = useQuery({
+		queryKey: ['participatingAuctions'],
+		queryFn: () => getParticipatingAuctions(),
 		enabled: !!user && !isLoading,
 	})
 
-	// ✅ Fetch won auctions
+	// ✅ Fetch won auctions (using new bids API)
 	const { data: wonData, isLoading: isLoadingWon } = useQuery({
-		queryKey: ['biddingHistory', 'won'],
-		queryFn: () => userApi.getWonAuctions(),
+		queryKey: ['wonAuctions'],
+		queryFn: () => getWonAuctions(),
+		enabled: !!user && !isLoading,
+	})
+
+	// ✅ Fetch reviews received by user
+	const { data: reviewsData, isLoading: isLoadingReviews } = useQuery({
+		queryKey: ['userReviews'],
+		queryFn: () => userApi.getReviews(),
 		enabled: !!user && !isLoading,
 	})
 
@@ -106,8 +114,8 @@ export default function BidderProfile() {
 	}
 
 	const profile = profileData?.user
-	const biddingProducts = biddingData?.biddingHistory || []
-	const wonProducts = wonData?.biddingHistory || []
+	const participatingProducts = participatingData?.data?.products || []
+	const wonProducts = wonData?.data?.products || []
 
 	const handleSwitchToSeller = () => {
 		if (profile?.role === 'ROLE SELLER' || profile?.role === 'ROLE ADMIN') {
@@ -170,12 +178,12 @@ export default function BidderProfile() {
 										<div className="flex items-center gap-2">
 											<Star className="h-5 w-5 text-yellow-500 fill-yellow-500" />
 											<span className="font-semibold">
-												{profile?.ratingPercentage || 0}
+												{reviewsData?.summary?.ratingPercentage || 0}
 												%
 											</span>
 										</div>
 										<span className="text-sm text-muted-foreground">
-											{profile?.totalReviews || 0} đánh
+											{reviewsData?.summary?.total || 0} đánh
 											giá
 										</span>
 									</div>
@@ -184,7 +192,7 @@ export default function BidderProfile() {
 										<div className="flex items-center gap-2">
 											<ThumbsUp className="h-5 w-5 text-green-500" />
 											<span className="font-semibold">
-												{profile?.positiveReviews || 0}
+												{reviewsData?.summary?.positive || 0}
 											</span>
 										</div>
 										<span className="text-sm text-muted-foreground">
@@ -359,42 +367,43 @@ export default function BidderProfile() {
 											<p className="text-muted-foreground text-center py-8">
 												Đang tải...
 											</p>
-										) : biddingProducts.length === 0 ? (
+										) : participatingProducts.length === 0 ? (
 											<p className="text-muted-foreground text-center py-8">
 												Bạn chưa tham gia đấu giá sản
 												phẩm nào
 											</p>
 										) : (
 											<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-												{biddingProducts.map((item) => (
-													<ProductCard
-														key={item.bidId}
-														id={item.productId}
-														image={
-															item.productImage
-														}
-														title={item.productName}
-														currentPrice={
-															item.bidAmount
-														}
-														buyNowPrice={
-															item.currentPrice
-														}
-														highestBidder={
-															item.isHighestBid
-																? 'Bạn'
-																: '****'
-														}
-														bidCount={1}
-														endTime={
-															new Date(
-																item.endTime
-															)
-														}
-														category={
-															item.categoryName
-														}
-													/>
+												{participatingProducts.map((item) => (
+													<div key={item._id} className="relative">
+														<ProductCard
+															id={item._id}
+															image={item.images?.[0]}
+															title={item.name}
+															currentPrice={item.currentPrice}
+															highestBidder={
+																item.isWinning
+																	? 'Bạn (Dẫn đầu)'
+																	: 'Đã bị vượt qua'
+															}
+															bidCount={item.bidCount}
+															endTime={new Date(item.endTime)}
+															category={item.categoryName}
+														/>
+														{/* Status badge overlay */}
+														<Badge
+															className={`absolute top-2 left-2 z-10 ${
+																item.isWinning
+																	? 'bg-green-500'
+																	: 'bg-yellow-500'
+															}`}
+														>
+															{item.isWinning ? '🏆 Dẫn đầu' : '⚠️ Bị vượt'}
+														</Badge>
+														<p className="text-sm text-muted-foreground mt-1 px-2">
+															Giá tối đa của bạn: {item.yourMaxBid?.toLocaleString('vi-VN')}₫
+														</p>
+													</div>
 												))}
 											</div>
 										)}
@@ -426,27 +435,38 @@ export default function BidderProfile() {
 										) : (
 											<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 												{wonProducts.map((item) => (
-													<ProductCard
-														key={item.bidId}
-														id={item.productId}
-														image={
-															item.productImage
-														}
-														title={item.productName}
-														currentPrice={
-															item.currentPrice
-														}
-														highestBidder={'Bạn'}
-														bidCount={1}
-														endTime={
-															new Date(
-																item.endTime
-															)
-														}
-														category={
-															item.categoryName
-														}
-													/>
+													<div key={item._id} className="relative">
+														<ProductCard
+															id={item._id}
+															image={item.images?.[0]}
+															title={item.name}
+															currentPrice={item.finalPrice}
+															highestBidder={'🏆 Bạn đã thắng'}
+															bidCount={0}
+															endTime={new Date(item.endTime)}
+															category={item.categoryName}
+														/>
+														<Badge className="absolute top-2 right-2 bg-green-600">
+															🎉 Đã thắng
+														</Badge>
+														<div className="text-sm text-muted-foreground mt-1 px-2">
+															<p>Người bán: {item.sellerName}</p>
+															{!item.isSold && (
+																<Button
+																	size="sm"
+																	className="mt-2 w-full"
+																	onClick={() => navigate(`/order/${item._id}`)}
+																>
+																	Tiến hành thanh toán
+																</Button>
+															)}
+															{item.isSold && (
+																<Badge variant="outline" className="mt-2">
+																	✅ Đã hoàn thành giao dịch
+																</Badge>
+															)}
+														</div>
+													</div>
 												))}
 											</div>
 										)}
@@ -469,18 +489,31 @@ export default function BidderProfile() {
 										</CardDescription>
 									</CardHeader>
 									<CardContent>
-										<div className="space-y-4">
-											{profile && (
-												<div className="border-t pt-4">
-													<p className="text-sm text-muted-foreground mb-2">
-														Tổng hợp đánh giá
-													</p>
-													<div className="grid grid-cols-2 gap-4 mb-4">
+										<div className="space-y-6">
+											{/* Summary */}
+											{reviewsData?.summary && (
+												<div className="bg-muted/50 rounded-lg p-4">
+													<div className="flex items-center justify-between mb-4">
+														<p className="text-sm font-medium">
+															Tổng hợp đánh giá
+														</p>
+														<Badge variant="outline" className="text-lg px-3 py-1">
+															<Star className="h-4 w-4 fill-yellow-500 text-yellow-500 mr-1" />
+															{reviewsData.summary.ratingPercentage}%
+														</Badge>
+													</div>
+													<div className="grid grid-cols-3 gap-4 text-center">
+														<div>
+															<p className="text-2xl font-bold">
+																{reviewsData.summary.total}
+															</p>
+															<p className="text-sm text-muted-foreground">
+																Tổng số
+															</p>
+														</div>
 														<div>
 															<p className="text-2xl font-bold text-green-600">
-																{
-																	profile.positiveReviews
-																}
+																{reviewsData.summary.positive}
 															</p>
 															<p className="text-sm text-muted-foreground">
 																Tích cực
@@ -488,22 +521,94 @@ export default function BidderProfile() {
 														</div>
 														<div>
 															<p className="text-2xl font-bold text-red-600">
-																{
-																	profile.negativeReviews
-																}
+																{reviewsData.summary.negative}
 															</p>
 															<p className="text-sm text-muted-foreground">
 																Tiêu cực
 															</p>
 														</div>
 													</div>
-													{profile.totalReviews ===
-														0 && (
-														<p className="text-muted-foreground text-center py-4">
-															Bạn chưa có đánh giá
-															nào
-														</p>
-													)}
+												</div>
+											)}
+
+											{/* Reviews List */}
+											{isLoadingReviews ? (
+												<div className="flex justify-center py-8">
+													<Loader2 className="h-6 w-6 animate-spin" />
+												</div>
+											) : reviewsData?.reviews.length === 0 ? (
+												<p className="text-muted-foreground text-center py-8">
+													Bạn chưa có đánh giá nào
+												</p>
+											) : (
+												<div className="space-y-4">
+													<p className="text-sm font-medium border-b pb-2">
+														Chi tiết đánh giá ({reviewsData?.reviews.length})
+													</p>
+													{reviewsData?.reviews.map((review) => (
+														<div
+															key={review._id}
+															className="flex gap-4 p-4 border rounded-lg hover:bg-muted/30 transition-colors"
+														>
+															{/* Product Image */}
+															{review.productImage && (
+																<Link to={`/products/${review.productId}`}>
+																	<img
+																		src={review.productImage}
+																		alt={review.productName}
+																		className="w-16 h-16 object-cover rounded-lg flex-shrink-0"
+																	/>
+																</Link>
+															)}
+
+															{/* Review Content */}
+															<div className="flex-1 min-w-0">
+																<div className="flex items-start justify-between gap-2">
+																	<div>
+																		<Link
+																			to={`/products/${review.productId}`}
+																			className="font-medium hover:text-primary line-clamp-1"
+																		>
+																			{review.productName}
+																		</Link>
+																		<p className="text-sm text-muted-foreground">
+																			Từ: {review.reviewerName}
+																		</p>
+																	</div>
+																	<Badge
+																		variant={review.rating === 1 ? 'default' : 'destructive'}
+																		className={review.rating === 1 ? 'bg-green-600' : ''}
+																	>
+																		{review.rating === 1 ? (
+																			<>
+																				<ThumbsUp className="h-3 w-3 mr-1" />
+																				+1
+																			</>
+																		) : (
+																			<>
+																				<ThumbsDown className="h-3 w-3 mr-1" />
+																				-1
+																			</>
+																		)}
+																	</Badge>
+																</div>
+																{review.comment && (
+																	<p className="text-sm mt-2 text-muted-foreground italic">
+																		"{review.comment}"
+																	</p>
+																)}
+																<p className="text-xs text-muted-foreground mt-2">
+																	{new Date(review.createdAt).toLocaleDateString('vi-VN', {
+																		year: 'numeric',
+																		month: 'long',
+																		day: 'numeric',
+																		hour: '2-digit',
+																		minute: '2-digit',
+																	})}
+																</p>
+															</div>
+														</div>
+													))}
 												</div>
 											)}
 										</div>

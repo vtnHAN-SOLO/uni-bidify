@@ -94,7 +94,7 @@ export interface UpgradeRequest {
 
 export enum UserRole {
 	ADMIN = 'ROLE ADMIN',
-	BIDER = 'ROLE BIDER',
+	BIDDER = 'ROLE BIDDER',
 	SELLER = 'ROLE SELLER',
 	GUEST = 'ROLE GUEST',
 }
@@ -171,7 +171,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
 			actions: [PermissionAction.READ],
 		},
 	],
-	[UserRole.BIDER]: [
+	[UserRole.BIDDER]: [
 		{
 			resource: 'products',
 			actions: [PermissionAction.READ],
