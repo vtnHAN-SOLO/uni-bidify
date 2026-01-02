@@ -1,4 +1,4 @@
-import { Bell, User, ChevronDown, LogOut, Shield } from 'lucide-react'
+import { User, ChevronDown, LogOut, Shield } from 'lucide-react'
 import { Button } from '@/components/ui/input/button'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import {
@@ -9,7 +9,6 @@ import {
 	DropdownMenuTrigger,
 } from '@/components/ui/navigation/dropdown-menu'
 import { Avatar, AvatarFallback } from '@/components/ui/data-display/avatar'
-import { Badge } from '@/components/ui/data-display/badge'
 import { useAuth } from '@/contexts/AuthContext'
 import { cn } from '@/lib/utils'
 
@@ -96,22 +95,6 @@ export const AdminHeader = () => {
 
 				{/* User Actions */}
 				<div className="flex items-center gap-2">
-					{/* Notifications */}
-					<Button
-						variant="ghost"
-						size="icon"
-						className="h-9 w-9 relative"
-					>
-						<Bell className="h-4 w-4" />
-						<Badge
-							variant="destructive"
-							className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
-						>
-							3
-						</Badge>
-						<span className="sr-only">Thông báo</span>
-					</Button>
-
 					{/* User Menu */}
 					<DropdownMenu>
 						<DropdownMenuTrigger asChild>

@@ -1,9 +1,11 @@
 import express, { Request, Response } from 'express'
+import bcrypt from 'bcryptjs'
 import Auth from '../../Middleware/Auth.js'
 import Role from '../../Middleware/Role.js'
 import User from '../../Models/User.js'
 import Category from '../../Models/Category.js'
 import Product from '../../Models/Product.js'
+import Settings from '../../Models/Settings.js'
 import { ROLES, UPGRADE_REQUEST_STATUS } from '../../Data/Constants/index.js'
 
 const router = express.Router()
@@ -15,6 +17,7 @@ const router = express.Router()
 /**
  * GET /api/admin/categories
  * Get all categories with product count
+ * Parent categories show total count of their own products + all child categories' products
  */
 router.get(
 	'/categories',
@@ -24,23 +27,55 @@ router.get(
 		try {
 			const categories = await Category.find().lean()
 
-			// ✅ Get product count for each category
-			const categoriesWithCount = await Promise.all(
-				(categories as any[]).map(async (category: any) => {
-					const productCount = await Product.countDocuments({
-						category: category._id,
-					})
-
-					return {
-						id: category._id.toString(),
-						name: category.name,
-						parent: category.parent
-							? category.parent.toString()
-							: null,
-						productCount,
-					}
+			// ✅ First pass: Get direct product count for each category
+			const categoryProductCounts: Record<string, number> = {}
+			for (const category of categories as any[]) {
+				const directCount = await Product.countDocuments({
+					category: category._id,
 				})
-			)
+				categoryProductCounts[category._id.toString()] = directCount
+			}
+
+			// ✅ Build map of parent -> children for easier lookup
+			const childrenMap: Record<string, string[]> = {}
+			for (const category of categories as any[]) {
+				if (category.parent) {
+					const parentId = category.parent.toString()
+					if (!childrenMap[parentId]) {
+						childrenMap[parentId] = []
+					}
+					childrenMap[parentId]!.push(category._id.toString())
+				}
+			}
+
+			// ✅ Calculate total count for each category (including children)
+			const getTotalCount = (categoryId: string): number => {
+				let total = categoryProductCounts[categoryId] || 0
+				const children = childrenMap[categoryId] || []
+				for (const childId of children) {
+					total += getTotalCount(childId) // Recursive for nested categories
+				}
+				return total
+			}
+
+			// ✅ Map categories with correct product counts
+			const categoriesWithCount = (categories as any[]).map((category: any) => {
+				const categoryId = category._id.toString()
+				const children = childrenMap[categoryId]
+				const hasChildren = children !== undefined && children.length > 0
+
+				return {
+					id: categoryId,
+					name: category.name,
+					parent: category.parent
+						? category.parent.toString()
+						: null,
+					// Parent categories show total (own + children), child categories show direct count
+					productCount: hasChildren
+						? getTotalCount(categoryId)
+						: categoryProductCounts[categoryId] || 0,
+				}
+			})
 
 			return res.json({
 				success: true,
@@ -50,7 +85,7 @@ router.get(
 		} catch (error: any) {
 			console.error('Get categories error:', error)
 			return res.status(500).json({
-				error: error.message || 'Failed to get categories.',
+				error: error.message || 'Không thể lấy danh sách danh mục.',
 			})
 		}
 	}
@@ -71,7 +106,7 @@ router.post(
 			// ✅ Validate input
 			if (!name || name.trim() === '') {
 				return res.status(400).json({
-					error: 'Category name is required.',
+					error: 'Tên danh mục là bắt buộc.',
 				})
 			}
 
@@ -81,7 +116,7 @@ router.post(
 			})
 			if (existingCategory) {
 				return res.status(400).json({
-					error: 'Category already exists.',
+					error: 'Danh mục đã tồn tại.',
 				})
 			}
 
@@ -91,7 +126,7 @@ router.post(
 				const parentCategory = await Category.findById(parent)
 				if (!parentCategory) {
 					return res.status(404).json({
-						error: 'Parent category not found.',
+						error: 'Không tìm thấy danh mục cha.',
 					})
 				}
 				parentId = parent
@@ -107,7 +142,7 @@ router.post(
 
 			return res.status(201).json({
 				success: true,
-				message: 'Category created successfully.',
+				message: 'Tạo danh mục thành công.',
 				category: {
 					id: newCategory._id.toString(),
 					name: newCategory.name,
@@ -120,7 +155,7 @@ router.post(
 		} catch (error: any) {
 			console.error('Create category error:', error)
 			return res.status(500).json({
-				error: error.message || 'Failed to create category.',
+				error: error.message || 'Không thể tạo danh mục.',
 			})
 		}
 	}
@@ -146,14 +181,14 @@ router.put(
 			// ✅ Validate input
 			if (!name || name.trim() === '') {
 				return res.status(400).json({
-					error: 'Category name is required.',
+					error: 'Tên danh mục là bắt buộc.',
 				})
 			}
 
 			// ✅ Check if category exists
 			const category = await Category.findById(id)
 			if (!category) {
-				return res.status(404).json({ error: 'Category not found.' })
+				return res.status(404).json({ error: 'Không tìm thấy danh mục.' })
 			}
 
 			// ✅ If parent is provided, verify it exists and is not the same as id
@@ -161,13 +196,13 @@ router.put(
 			if (parent) {
 				if (parent === id) {
 					return res.status(400).json({
-						error: 'A category cannot be its own parent.',
+						error: 'Danh mục không thể là cha của chính nó.',
 					})
 				}
 				const parentCategory = await Category.findById(parent)
 				if (!parentCategory) {
 					return res.status(404).json({
-						error: 'Parent category not found.',
+						error: 'Không tìm thấy danh mục cha.',
 					})
 				}
 				parentId = parent
@@ -180,7 +215,7 @@ router.put(
 
 			return res.json({
 				success: true,
-				message: 'Category updated successfully.',
+				message: 'Cập nhật danh mục thành công.',
 				category: {
 					id: category._id.toString(),
 					name: category.name,
@@ -190,7 +225,7 @@ router.put(
 		} catch (error: any) {
 			console.error('Update category error:', error)
 			return res.status(500).json({
-				error: error.message || 'Failed to update category.',
+				error: error.message || 'Không thể cập nhật danh mục.',
 			})
 		}
 	}
@@ -206,7 +241,7 @@ router.delete(
 
 			const category = await Category.findById(id)
 			if (!category) {
-				return res.status(404).json({ error: 'Category not found.' })
+				return res.status(404).json({ error: 'Không tìm thấy danh mục.' })
 			}
 
 			// ✅ Check if category has products
@@ -215,7 +250,7 @@ router.delete(
 			})
 			if (productCount > 0) {
 				return res.status(400).json({
-					error: 'Cannot delete category with existing products.',
+					error: 'Không thể xóa danh mục đang có sản phẩm.',
 				})
 			}
 
@@ -223,12 +258,12 @@ router.delete(
 
 			return res.json({
 				success: true,
-				message: 'Category deleted successfully.',
+				message: 'Xóa danh mục thành công.',
 			})
 		} catch (error: any) {
 			console.error('Delete category error:', error)
 			return res.status(500).json({
-				error: error.message || 'Failed to delete category.',
+				error: error.message || 'Không thể xóa danh mục.',
 			})
 		}
 	}
@@ -315,7 +350,7 @@ router.get(
 		} catch (error: any) {
 			console.error('Get users error:', error)
 			return res.status(500).json({
-				error: error.message || 'Failed to get users.',
+				error: error.message || 'Không thể lấy danh sách người dùng.',
 			})
 		}
 	}
@@ -369,7 +404,7 @@ router.get(
 		} catch (error: any) {
 			console.error('Get upgrade requests error:', error)
 			return res.status(500).json({
-				error: error.message || 'Failed to get upgrade requests.',
+				error: error.message || 'Không thể lấy danh sách yêu cầu nâng cấp.',
 			})
 		}
 	}
@@ -391,18 +426,18 @@ router.put(
 			// ✅ Validate input
 			if (!action || !['approve', 'reject'].includes(action)) {
 				return res.status(400).json({
-					error: "Action must be 'approve' or 'reject'.",
+					error: "Hành động phải là 'approve' hoặc 'reject'.",
 				})
 			}
 
 			const user = await User.findById(id)
 			if (!user) {
-				return res.status(404).json({ error: 'User not found.' })
+				return res.status(404).json({ error: 'Không tìm thấy người dùng.' })
 			}
 
 			if (user.upgradeRequestStatus !== UPGRADE_REQUEST_STATUS.Pending) {
 				return res.status(400).json({
-					error: 'This user has no pending upgrade request.',
+					error: 'Người dùng này không có yêu cầu nâng cấp đang chờ.',
 				})
 			}
 
@@ -410,11 +445,15 @@ router.put(
 				// ✅ Approve upgrade
 				user.role = ROLES.Seller
 				user.upgradeRequestStatus = UPGRADE_REQUEST_STATUS.Approved
+				// ✅ Set seller expiry date (7 days from now)
+				const expiryDate = new Date()
+				expiryDate.setDate(expiryDate.getDate() + 7)
+				user.sellerExpiryDate = expiryDate
 			} else {
 				// ✅ Reject upgrade
 				if (!rejectionReason) {
 					return res.status(400).json({
-						error: 'Rejection reason is required.',
+						error: 'Lý do từ chối là bắt buộc.',
 					})
 				}
 				user.upgradeRequestStatus = UPGRADE_REQUEST_STATUS.Rejected
@@ -426,8 +465,8 @@ router.put(
 				success: true,
 				message:
 					action === 'approve'
-						? 'Upgrade approved successfully.'
-						: 'Upgrade rejected successfully.',
+						? 'Phê duyệt nâng cấp thành công.'
+						: 'Từ chối nâng cấp thành công.',
 				user: {
 					id: user._id.toString(),
 					email: user.email,
@@ -435,12 +474,13 @@ router.put(
 					lastName: user.lastName,
 					role: user.role,
 					upgradeRequestStatus: user.upgradeRequestStatus,
+					sellerExpiryDate: user.sellerExpiryDate,
 				},
 			})
 		} catch (error: any) {
 			console.error('Update upgrade request error:', error)
 			return res.status(500).json({
-				error: error.message || 'Failed to update upgrade request.',
+				error: error.message || 'Không thể cập nhật yêu cầu nâng cấp.',
 			})
 		}
 	}
@@ -465,7 +505,7 @@ router.get(
 				.lean()
 
 			if (!user) {
-				return res.status(404).json({ error: 'User not found.' })
+				return res.status(404).json({ error: 'Không tìm thấy người dùng.' })
 			}
 
 			return res.json({
@@ -499,7 +539,7 @@ router.get(
 		} catch (error: any) {
 			console.error('Get user detail error:', error)
 			return res.status(500).json({
-				error: error.message || 'Failed to get user detail.',
+				error: error.message || 'Không thể lấy thông tin người dùng.',
 			})
 		}
 	}
@@ -508,6 +548,8 @@ router.get(
 /**
  * POST /api/admin/users
  * Create a new user (admin only)
+ * - Only allows creating Bidder or Admin roles (Seller must be upgraded from Bidder)
+ * - Sends OTP verification email like normal registration
  */
 router.post(
 	'/users',
@@ -518,9 +560,18 @@ router.post(
 			const { firstName, lastName, email, address, role } = req.body
 
 			// ✅ Validate required fields
-			if (!firstName || !lastName || !email) {
+			if (!firstName || !lastName || !email || !address) {
 				return res.status(400).json({
-					error: 'First name, last name, and email are required.',
+					error: 'Họ, tên, email và địa chỉ là bắt buộc.',
+				})
+			}
+
+			// ✅ Only allow Bidder or Admin roles
+			const allowedRoles = [ROLES.Bidder, ROLES.Admin]
+			const selectedRole = role || ROLES.Bidder
+			if (!allowedRoles.includes(selectedRole)) {
+				return res.status(400).json({
+					error: 'Chỉ được phép tạo tài khoản Người mua hoặc Admin. Người bán phải được nâng cấp từ Người mua.',
 				})
 			}
 
@@ -528,20 +579,22 @@ router.post(
 			const existingUser = await User.findOne({ email })
 			if (existingUser) {
 				return res.status(400).json({
-					error: 'User with this email already exists.',
+					error: 'Email này đã được sử dụng.',
 				})
 			}
 
-			// ✅ Create new user with default password
-			const defaultPassword = 'Admin@123456'
+			// ✅ Create new user with default password and unverified status
+			// OTP will be sent when user tries to login for the first time
+			const defaultPassword = 'password123'
+			const hashedPassword = await bcrypt.hash(defaultPassword, 10)
 			const newUser = new User({
 				firstName: firstName.trim(),
 				lastName: lastName.trim(),
 				email: email.toLowerCase(),
-				address: address || '',
-				password: defaultPassword,
-				role: role || ROLES.Bidder,
-				isVerified: true,
+				address: address.trim(),
+				password: hashedPassword,
+				role: selectedRole,
+				isVerified: false, // Must verify via OTP on first login
 				isActive: true,
 			})
 
@@ -550,8 +603,9 @@ router.post(
 			return res.status(201).json({
 				success: true,
 				message:
-					'User created successfully. Default password: ' +
-					defaultPassword,
+					'Tạo người dùng thành công. Mật khẩu mặc định: ' +
+					defaultPassword +
+					'. Khi đăng nhập lần đầu, người dùng sẽ nhận OTP qua email để xác thực.',
 				user: {
 					id: newUser._id.toString(),
 					firstName: newUser.firstName,
@@ -559,12 +613,13 @@ router.post(
 					email: newUser.email,
 					role: newUser.role,
 					status: newUser.isActive ? 'active' : 'blocked',
+					isVerified: newUser.isVerified,
 				},
 			})
 		} catch (error: any) {
 			console.error('Create user error:', error)
 			return res.status(500).json({
-				error: error.message || 'Failed to create user.',
+				error: error.message || 'Không thể tạo người dùng.',
 			})
 		}
 	}
@@ -585,13 +640,13 @@ router.delete(
 			// ✅ Check if user exists
 			const user = await User.findById(id)
 			if (!user) {
-				return res.status(404).json({ error: 'User not found.' })
+				return res.status(404).json({ error: 'Không tìm thấy người dùng.' })
 			}
 
 			// ✅ Prevent deleting admin users
 			if (user.role === ROLES.Admin) {
 				return res.status(400).json({
-					error: 'Cannot delete admin users.',
+					error: 'Không thể xóa tài khoản Admin.',
 				})
 			}
 
@@ -600,12 +655,12 @@ router.delete(
 
 			return res.json({
 				success: true,
-				message: 'User deleted successfully.',
+				message: 'Xóa người dùng thành công.',
 			})
 		} catch (error: any) {
 			console.error('Delete user error:', error)
 			return res.status(500).json({
-				error: error.message || 'Failed to delete user.',
+				error: error.message || 'Không thể xóa người dùng.',
 			})
 		}
 	}
@@ -627,13 +682,13 @@ router.put(
 			// ✅ Validate input
 			if (!status || !['active', 'blocked'].includes(status)) {
 				return res.status(400).json({
-					error: "Status must be 'active' or 'blocked'.",
+					error: "Trạng thái phải là 'active' hoặc 'blocked'.",
 				})
 			}
 
 			const user = await User.findById(id)
 			if (!user) {
-				return res.status(404).json({ error: 'User not found.' })
+				return res.status(404).json({ error: 'Không tìm thấy người dùng.' })
 			}
 
 			user.isActive = status === 'active'
@@ -641,7 +696,7 @@ router.put(
 
 			return res.json({
 				success: true,
-				message: 'User status updated successfully.',
+				message: 'Cập nhật trạng thái người dùng thành công.',
 				user: {
 					id: user._id.toString(),
 					email: user.email,
@@ -653,7 +708,7 @@ router.put(
 		} catch (error: any) {
 			console.error('Update user status error:', error)
 			return res.status(500).json({
-				error: error.message || 'Failed to update user status.',
+				error: error.message || 'Không thể cập nhật trạng thái người dùng.',
 			})
 		}
 	}
@@ -696,7 +751,7 @@ router.get(
 				currentPrice: product.currentPrice,
 				buyNowPrice: product.buyNowPrice,
 				endTime: product.endTime,
-				bidCount: product.idCount || 0,
+				bidCount: product.bidCount || 0,
 				categoryName: product.category?.name || 'N/A',
 				highestBidder: product.highestBidder,
 				isSold: product.isSold,
@@ -715,7 +770,7 @@ router.get(
 		} catch (error: any) {
 			console.error('Get products error:', error)
 			return res.status(500).json({
-				error: error.message || 'Failed to get products.',
+				error: error.message || 'Không thể lấy danh sách sản phẩm.',
 			})
 		}
 	}
@@ -742,7 +797,7 @@ router.get(
 				.lean()
 
 			if (!product) {
-				return res.status(404).json({ error: 'Product not found.' })
+				return res.status(404).json({ error: 'Không tìm thấy sản phẩm.' })
 			}
 
 			// ✅ Calculate seller rating
@@ -797,7 +852,7 @@ router.get(
 		} catch (error: any) {
 			console.error('Get product detail error:', error)
 			return res.status(500).json({
-				error: error.message || 'Failed to get product detail.',
+				error: error.message || 'Không thể lấy thông tin sản phẩm.',
 			})
 		}
 	}
@@ -817,7 +872,7 @@ router.delete(
 
 			const product = await Product.findById(id)
 			if (!product) {
-				return res.status(404).json({ error: 'Product not found.' })
+				return res.status(404).json({ error: 'Không tìm thấy sản phẩm.' })
 			}
 
 			// ✅ Delete product
@@ -825,12 +880,135 @@ router.delete(
 
 			return res.json({
 				success: true,
-				message: 'Product deleted successfully.',
+				message: 'Xóa sản phẩm thành công.',
 			})
 		} catch (error: any) {
 			console.error('Delete product error:', error)
 			return res.status(500).json({
-				error: error.message || 'Failed to delete product.',
+				error: error.message || 'Không thể xóa sản phẩm.',
+			})
+		}
+	}
+)
+
+// ============================================
+// AUCTION SETTINGS MANAGEMENT
+// ============================================
+
+/**
+ * GET /api/admin/settings
+ * Get auction settings (auto-extend configuration)
+ */
+router.get(
+	'/settings',
+	Auth,
+	Role.check(ROLES.Admin),
+	async (req: Request, res: Response) => {
+		try {
+			// Find existing settings or create default
+			let settings = await Settings.findOne().lean()
+
+			if (!settings) {
+				// Create default settings if none exist
+				const newSettings = new Settings({
+					triggerMinutes: 5,
+					extensionMinutes: 10,
+				})
+				await newSettings.save()
+				settings = newSettings.toObject()
+			}
+
+			return res.json({
+				success: true,
+				settings: {
+					triggerMinutes: settings.triggerMinutes,
+					extensionMinutes: settings.extensionMinutes,
+					updatedAt: settings.updatedAt,
+				},
+			})
+		} catch (error: any) {
+			console.error('Get settings error:', error)
+			return res.status(500).json({
+				error: error.message || 'Không thể lấy cài đặt.',
+			})
+		}
+	}
+)
+
+/**
+ * PUT /api/admin/settings
+ * Update auction settings
+ */
+router.put(
+	'/settings',
+	Auth,
+	Role.check(ROLES.Admin),
+	async (req: Request, res: Response) => {
+		try {
+			const { triggerMinutes, extensionMinutes } = req.body
+
+			// Validate input
+			if (
+				triggerMinutes !== undefined &&
+				(triggerMinutes < 1 || triggerMinutes > 60)
+			) {
+				return res.status(400).json({
+					error: 'Thời gian kích hoạt phải từ 1 đến 60 phút.',
+				})
+			}
+
+			if (
+				extensionMinutes !== undefined &&
+				(extensionMinutes < 1 || extensionMinutes > 120)
+			) {
+				return res.status(400).json({
+					error: 'Thời gian gia hạn phải từ 1 đến 120 phút.',
+				})
+			}
+
+			// Build update object - only include fields that are provided
+			const updateFields: Record<string, number> = {}
+			if (triggerMinutes !== undefined) {
+				updateFields.triggerMinutes = triggerMinutes
+			}
+			if (extensionMinutes !== undefined) {
+				updateFields.extensionMinutes = extensionMinutes
+			}
+
+			// Check if settings exist
+			const existingSettings = await Settings.findOne().lean()
+
+			let updatedSettings
+			if (existingSettings) {
+				// Update existing settings
+				updatedSettings = await Settings.findOneAndUpdate(
+					{},
+					{ $set: updateFields },
+					{ new: true }
+				).lean()
+			} else {
+				// Create new settings with defaults for missing fields
+				const newSettings = new Settings({
+					triggerMinutes: triggerMinutes ?? 5,
+					extensionMinutes: extensionMinutes ?? 10,
+				})
+				await newSettings.save()
+				updatedSettings = newSettings.toObject()
+			}
+
+			return res.json({
+				success: true,
+				message: 'Cài đặt đã được cập nhật thành công.',
+				settings: {
+					triggerMinutes: updatedSettings?.triggerMinutes ?? 5,
+					extensionMinutes: updatedSettings?.extensionMinutes ?? 10,
+					updatedAt: updatedSettings?.updatedAt,
+				},
+			})
+		} catch (error: any) {
+			console.error('Update settings error:', error)
+			return res.status(500).json({
+				error: error.message || 'Không thể cập nhật cài đặt.',
 			})
 		}
 	}

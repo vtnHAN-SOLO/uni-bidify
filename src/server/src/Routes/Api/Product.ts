@@ -1,9 +1,11 @@
 import express, { Request, Response } from 'express'
 import Product from '../../Models/Product.js'
 import Category from '../../Models/Category.js'
+import Settings from '../../Models/Settings.js'
 import Auth from '../../Middleware/Auth.js'
 import { ROLES } from '../../Data/Constants/index.js'
 import { check as checkRole } from '../../Middleware/Role.js'
+import { checkCanCreateProduct, checkSellerAccess } from '../../Middleware/SellerPermission.js'
 
 const router = express.Router()
 
@@ -66,6 +68,57 @@ interface ProductDoc {
 	highestBidder?: { _id: { toString: () => string }; firstName: string; lastName: string }
 }
 
+/**
+ * Mask username for public display
+ * "Pham Thi Gia" -> "**** Gia"
+ */
+const maskUsername = (firstName: string, lastName: string): string => {
+	const fullName = `${firstName} ${lastName}`
+	if (fullName.length <= 4) {
+		return '****' + fullName
+	}
+	return '****' + fullName.slice(-4)
+}
+
+// ==================== PUBLIC SETTINGS ROUTE ====================
+
+/**
+ * GET /api/products/auction-settings
+ * Get public auction settings (trigger minutes, extension minutes)
+ * This is a public endpoint - no auth required
+ */
+router.get('/auction-settings', async (_req: Request, res: Response) => {
+	try {
+		// Get settings from database
+		let settings = await Settings.findOne().lean()
+
+		// Return default values if no settings exist
+		if (!settings) {
+			return res.json({
+				success: true,
+				settings: {
+					triggerMinutes: 5,
+					extensionMinutes: 10,
+				},
+			})
+		}
+
+		return res.json({
+			success: true,
+			settings: {
+				triggerMinutes: settings.triggerMinutes ?? 5,
+				extensionMinutes: settings.extensionMinutes ?? 10,
+			},
+		})
+	} catch (error: unknown) {
+		console.error('❌ Error fetching auction settings:', error)
+		return res.status(500).json({
+			success: false,
+			error: String(error) || 'Không thể lấy cài đặt đấu giá.',
+		})
+	}
+})
+
 // ✅ HÀM MAP CHUNG (tái sử dụng cho tất cả routes)
 const mapDocToDTO = (doc: unknown): ProductDTO => {
 	const d = doc as ProductDoc
@@ -109,9 +162,9 @@ const mapDocToDTO = (doc: unknown): ProductDTO => {
 		sellerRating,
 		sellerTotalRatings,
 
-		// ✅ Highest bidder info (masked)
-		highestBidderName: d.highestBidder?.firstName
-			? `****${d.highestBidder.firstName.slice(-3)}`
+		// ✅ Highest bidder info (masked) - same logic as bid history
+		highestBidderName: d.highestBidder
+			? maskUsername(d.highestBidder.firstName || '', d.highestBidder.lastName || '')
 			: 'Chưa có',
 		highestBidderId: d.highestBidder?._id
 			? d.highestBidder._id.toString()
@@ -193,7 +246,7 @@ router.get('/', async (req: Request, res: Response) => {
 	} catch (error: unknown) {
 		return res.status(500).json({
 			success: false,
-			error: String(error) || 'Could not fetch products.',
+			error: String(error) || 'Không thể lấy danh sách sản phẩm.',
 		})
 	}
 })
@@ -204,6 +257,7 @@ router.get('/', async (req: Request, res: Response) => {
 // - Pagination
 // - Sort by: endTime (desc), currentPrice (asc)
 // - Mark new products (posted within N minutes) with isNew flag
+// - Option to include ended auctions
 router.get('/search', async (req: Request, res: Response) => {
 	try {
 		const {
@@ -215,6 +269,7 @@ router.get('/search', async (req: Request, res: Response) => {
 			sort = 'endTime', // 'endTime' or 'currentPrice'
 			order, // 'asc' or 'desc' (default: endTime desc, price asc)
 			newWithinMinutes = 30, // Products created within N minutes are marked as "new"
+			includeEnded = 'false', // Include ended auctions (default: false)
 		} = req.query
 
 		const now = new Date()
@@ -222,10 +277,13 @@ router.get('/search', async (req: Request, res: Response) => {
 			now.getTime() - Number(newWithinMinutes) * 60 * 1000
 		)
 
-		// Build base query - only active auctions
-		const query: Record<string, unknown> = {
-			endTime: { $gt: now },
-			isSold: false,
+		// Build base query
+		const query: Record<string, unknown> = {}
+
+		// Only filter active auctions if includeEnded is false
+		if (includeEnded !== 'true') {
+			query.endTime = { $gt: now }
+			query.isSold = false
 		}
 
 		// Search by product name (using both text search and regex for flexibility)
@@ -358,7 +416,7 @@ router.get('/search', async (req: Request, res: Response) => {
 		console.error('❌ Search error:', error)
 		return res.status(500).json({
 			success: false,
-			error: String(error) || 'Could not search products.',
+			error: String(error) || 'Không thể tìm kiếm sản phẩm.',
 		})
 	}
 })
@@ -395,7 +453,7 @@ router.get('/home', async (req: Request, res: Response) => {
 			highestPrice: highestPriceDocs.map(mapDocToDTO),
 		})
 	} catch (error: unknown) {
-		res.status(500).json({ error: String(error) || 'Server error' })
+		res.status(500).json({ error: String(error) || 'Lỗi hệ thống' })
 	}
 })
 
@@ -422,7 +480,7 @@ router.get('/ending-soon', async (req: Request, res: Response) => {
 			totalPages: Math.ceil(total / Number(limit)),
 		})
 	} catch (error: unknown) {
-		res.status(500).json({ error: String(error) || 'Server error' })
+		res.status(500).json({ error: String(error) || 'Lỗi hệ thống' })
 	}
 })
 
@@ -448,7 +506,7 @@ router.get('/most-bids', async (req: Request, res: Response) => {
 			totalPages: Math.ceil(total / Number(limit)),
 		})
 	} catch (error: unknown) {
-		res.status(500).json({ error: String(error) || 'Server error' })
+		res.status(500).json({ error: String(error) || 'Lỗi hệ thống' })
 	}
 })
 
@@ -474,7 +532,7 @@ router.get('/highest-price', async (req: Request, res: Response) => {
 			totalPages: Math.ceil(total / Number(limit)),
 		})
 	} catch (error: unknown) {
-		res.status(500).json({ error: String(error) || 'Server error' })
+		res.status(500).json({ error: String(error) || 'Lỗi hệ thống' })
 	}
 })
 
@@ -485,7 +543,7 @@ router.get('/highest-price', async (req: Request, res: Response) => {
 router.get(
 	'/seller/my-products',
 	Auth,
-	checkRole(ROLES.Seller, ROLES.Admin),
+	checkSellerAccess(), // Allow expired sellers to view their products
 	async (req: Request, res: Response) => {
 		try {
 			const user = req.user as { _id: string }
@@ -524,7 +582,7 @@ router.get(
 		} catch (error: unknown) {
 			return res.status(500).json({
 				success: false,
-				error: String(error) || 'Could not fetch products.',
+				error: String(error) || 'Không thể lấy danh sách sản phẩm.',
 			})
 		}
 	}
@@ -540,7 +598,7 @@ router.get(
 			if (!categoryId) {
 				return res
 					.status(400)
-					.json({ error: 'Category ID is required.' })
+					.json({ error: 'Vui lòng cung cấp ID danh mục.' })
 			}
 
 			// Debug log
@@ -550,7 +608,7 @@ router.get(
 			const category = await Category.findById(categoryId).lean()
 			if (!category) {
 				return res.status(404).json({
-					error: 'Category not found.',
+					error: 'Không tìm thấy danh mục.',
 					categoryId,
 				})
 			}
@@ -578,7 +636,7 @@ router.get(
 			console.error('❌ Error fetching products by category ID:', error)
 			return res.status(500).json({
 				error:
-					String(error) || 'Could not fetch products by category ID.',
+					String(error) || 'Không thể lấy sản phẩm theo danh mục.',
 			})
 		}
 	}
@@ -595,7 +653,7 @@ router.get(
 			if (!categoryName) {
 				return res
 					.status(400)
-					.json({ error: 'Category name is required.' })
+					.json({ error: 'Vui lòng cung cấp tên danh mục.' })
 			}
 
 			const decodedName = decodeURIComponent(categoryName)
@@ -606,7 +664,7 @@ router.get(
 
 			if (!category) {
 				return res.status(404).json({
-					error: 'Category not found.',
+					error: 'Không tìm thấy danh mục.',
 					categoryName: decodedName,
 				})
 			}
@@ -625,7 +683,7 @@ router.get(
 			const errorMsg =
 				error instanceof Error ? error.message : String(error)
 			return res.status(500).json({
-				error: errorMsg || 'Could not fetch products by category name.',
+				error: errorMsg || 'Không thể lấy sản phẩm theo tên danh mục.',
 			})
 		}
 	}
@@ -656,7 +714,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 	} catch (error: unknown) {
 		return res
 			.status(500)
-			.json({ error: String(error) || 'Could not fetch product.' })
+			.json({ error: String(error) || 'Không thể lấy thông tin sản phẩm.' })
 	}
 })
 
@@ -668,7 +726,7 @@ router.get('/:id/related', async (req: Request, res: Response) => {
 		const currentProduct = await Product.findById(id).lean()
 
 		if (!currentProduct) {
-			return res.status(404).json({ error: 'Product not found' })
+			return res.status(404).json({ error: 'Sản phẩm không tồn tại' })
 		}
 
 		const relatedProducts = await Product.find({
@@ -686,7 +744,7 @@ router.get('/:id/related', async (req: Request, res: Response) => {
 		})
 	} catch (error: unknown) {
 		return res.status(500).json({
-			error: String(error) || 'Could not fetch related products',
+			error: String(error) || 'Không thể lấy sản phẩm liên quan',
 		})
 	}
 })
@@ -695,7 +753,7 @@ router.get('/:id/related', async (req: Request, res: Response) => {
 router.post(
 	'/',
 	Auth,
-	checkRole(ROLES.Seller, ROLES.Admin),
+	checkCanCreateProduct(), // Check if seller can create new products (not expired)
 	async (req: Request, res: Response) => {
 		try {
 			const {
@@ -724,7 +782,7 @@ router.post(
 			) {
 				return res
 					.status(400)
-					.json({ error: 'Missing required fields.' })
+					.json({ error: 'Vui lòng điền đầy đủ thông tin bắt buộc.' })
 			}
 
 			// Validate minimum 3 images
@@ -760,7 +818,7 @@ router.post(
 		} catch (error: unknown) {
 			return res
 				.status(500)
-				.json({ error: String(error) || 'Could not create product.' })
+				.json({ error: String(error) || 'Không thể tạo sản phẩm.' })
 		}
 	}
 )
@@ -769,7 +827,7 @@ router.post(
 router.put(
 	'/:id/description',
 	Auth,
-	checkRole(ROLES.Seller, ROLES.Admin),
+	checkSellerAccess(), // Allow expired sellers to update description of their active products
 	async (req: Request, res: Response) => {
 		try {
 			const { id } = req.params
@@ -845,7 +903,7 @@ router.put(
 router.delete(
 	'/:id',
 	Auth,
-	checkRole(ROLES.Seller, ROLES.Admin),
+	checkSellerAccess(), // Allow expired sellers to delete their products (if no bids)
 	async (req: Request, res: Response) => {
 		try {
 			const { id } = req.params

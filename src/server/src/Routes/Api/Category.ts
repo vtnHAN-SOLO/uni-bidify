@@ -15,7 +15,7 @@ router.post('/', async (req: Request, res: Response) => {
 		const { name, parent } = req.body
 
 		if (!name) {
-			return res.status(400).json({ error: 'Name is required' })
+			return res.status(400).json({ error: 'Vui lòng nhập tên danh mục' })
 		}
 
 		const category = await Category.create({
@@ -27,7 +27,7 @@ router.post('/', async (req: Request, res: Response) => {
 	} catch (error: unknown) {
 		return res
 			.status(500)
-			.json({ error: String(error) || 'Could not create category' })
+			.json({ error: String(error) || 'Không thể tạo danh mục' })
 	}
 })
 
@@ -67,7 +67,7 @@ router.get('/', async (_req: Request, res: Response) => {
 		res.json(categoriesWithChildren)
 	} catch (error: unknown) {
 		res.status(500).json({
-			error: String(error) || 'Could not fetch categories',
+			error: String(error) || 'Không thể lấy danh sách danh mục',
 		})
 	}
 })
@@ -82,13 +82,13 @@ router.get('/:id', async (req: Request, res: Response) => {
 			.lean()
 
 		if (!category) {
-			return res.status(404).json({ error: 'Category not found' })
+			return res.status(404).json({ error: 'Không tìm thấy danh mục' })
 		}
 
 		return res.json(category)
 	} catch (error: unknown) {
 		return res.status(500).json({
-			error: String(error) || 'Could not fetch category',
+			error: String(error) || 'Không thể lấy thông tin danh mục',
 		})
 	}
 })
@@ -106,7 +106,7 @@ router.get('/:id/children', async (req: Request, res: Response) => {
 			return res.json({
 				parentId: id,
 				children: [],
-				message: 'No child categories found',
+				message: 'Không có danh mục con',
 			})
 		}
 
@@ -116,7 +116,7 @@ router.get('/:id/children', async (req: Request, res: Response) => {
 		})
 	} catch (error: unknown) {
 		return res.status(500).json({
-			error: String(error) || 'Could not fetch child categories',
+			error: String(error) || 'Không thể lấy danh mục con',
 		})
 	}
 })

@@ -28,13 +28,24 @@ import {
 	DialogTitle,
 } from '@/components/ui/overlay/dialog'
 import { Badge } from '@/components/ui/data-display/badge'
-import { Upload, X, Loader2, Eye } from 'lucide-react'
+import { Upload, X, Loader2, Eye, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
 import { fetchCategories, type Category } from '@/services/api/categories.api'
-import { createProduct, type CreateProductData } from '@/services/api/products.api'
+import { createProduct, type CreateProductData, fetchAuctionSettings } from '@/services/api/products.api'
+import { useAuth } from '@/contexts/AuthContext'
+import {
+	Alert,
+	AlertDescription,
+	AlertTitle,
+} from '@/components/ui/feedback/alert'
 
 export default function CreateProduct() {
 	const navigate = useNavigate()
+	const { user } = useAuth()
+
+	// Check seller expiry
+	const sellerExpiryDate = user?.sellerExpiryDate ? new Date(user.sellerExpiryDate) : null
+	const isSellerExpired = sellerExpiryDate ? new Date() > sellerExpiryDate : false
 
 	// Form state
 	const [name, setName] = useState('')
@@ -56,6 +67,12 @@ export default function CreateProduct() {
 	const { data: categories = [], isLoading: isCategoriesLoading } = useQuery({
 		queryKey: ['categories'],
 		queryFn: fetchCategories,
+	})
+
+	// Fetch auction settings
+	const { data: auctionSettings } = useQuery({
+		queryKey: ['auction-settings'],
+		queryFn: fetchAuctionSettings,
 	})
 
 	// Get parent categories (categories without parent)
@@ -171,6 +188,45 @@ export default function CreateProduct() {
 			return selectedParentCategory.name
 		}
 		return 'Chưa chọn'
+	}
+
+	// If seller is expired, show warning and redirect option
+	if (isSellerExpired) {
+		return (
+			<div className="min-h-screen bg-background">
+				<Header />
+				<main className="container py-8 max-w-4xl">
+					<Alert variant="destructive">
+						<AlertTriangle className="h-4 w-4" />
+						<AlertTitle>Quyền bán hàng đã hết hạn</AlertTitle>
+						<AlertDescription className="mt-2">
+							<p className="mb-4">
+								Quyền bán hàng của bạn đã hết hạn vào ngày{' '}
+								<strong>
+									{sellerExpiryDate?.toLocaleDateString('vi-VN', {
+										year: 'numeric',
+										month: 'long',
+										day: 'numeric',
+									})}
+								</strong>
+								. Bạn không thể đăng sản phẩm mới.
+							</p>
+							<p className="mb-4">
+								Bạn vẫn có thể quản lý các sản phẩm đang bán và thực hiện giao dịch cho đến khi tất cả phiên đấu giá kết thúc.
+							</p>
+							<div className="flex gap-2">
+								<Button onClick={() => navigate('/seller/products')} variant="outline">
+									Xem sản phẩm của tôi
+								</Button>
+								<Button onClick={() => navigate('/profile')}>
+									Yêu cầu nâng cấp lại
+								</Button>
+							</div>
+						</AlertDescription>
+					</Alert>
+				</main>
+			</div>
+		)
 	}
 
 	return (
@@ -391,8 +447,8 @@ export default function CreateProduct() {
 								<div className="space-y-0.5">
 									<Label htmlFor="autoExtend">Tự động gia hạn</Label>
 									<p className="text-sm text-muted-foreground">
-										Tự động gia hạn thêm 10 phút khi có người đấu giá
-										trong 5 phút cuối
+										Tự động gia hạn thêm {auctionSettings?.extensionMinutes ?? 10} phút khi có người đấu giá
+										trong {auctionSettings?.triggerMinutes ?? 5} phút cuối
 									</p>
 								</div>
 								<Switch

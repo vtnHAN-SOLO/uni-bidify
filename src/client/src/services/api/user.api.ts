@@ -101,4 +101,17 @@ export const userApi = {
 		const response = await apiClient.get(API_ENDPOINTS.USERS.REVIEWS)
 		return response.data
 	},
+
+	/**
+	 * POST /api/users/upgrade-request
+	 * Request upgrade from Bidder to Seller
+	 */
+	requestUpgrade: async (): Promise<{
+		success: boolean
+		message: string
+		upgradeRequestStatus: string
+	}> => {
+		const response = await apiClient.post(API_ENDPOINTS.USERS.UPGRADE_REQUEST)
+		return response.data
+	},
 }

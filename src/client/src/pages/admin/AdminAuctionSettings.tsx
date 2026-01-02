@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
-import { Header } from '@/components/Header'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/input/button'
 import {
 	Card,
@@ -22,8 +22,10 @@ import {
 } from '@/components/ui/input/form'
 import { Input } from '@/components/ui/input/input'
 import { useToast } from '@/hooks/use-toast'
-import { Settings, Clock, Timer } from 'lucide-react'
+import { Settings, Clock, Timer, Loader2 } from 'lucide-react'
 import { AdminHeader } from './AdminHeader'
+import { adminApi } from '@/services/api'
+
 const settingsSchema = z.object({
 	triggerMinutes: z.coerce
 		.number()
@@ -39,26 +41,87 @@ type SettingsFormValues = z.infer<typeof settingsSchema>
 
 const AdminAuctionSettings = () => {
 	const { toast } = useToast()
-	const [savedSettings, setSavedSettings] = useState({
-		triggerMinutes: 5,
-		extensionMinutes: 10,
+	const queryClient = useQueryClient()
+
+	// Fetch current settings from API
+	const {
+		data: settings,
+		isLoading,
+		isError,
+	} = useQuery({
+		queryKey: ['admin', 'settings'],
+		queryFn: adminApi.getSettings,
 	})
 
 	const form = useForm<SettingsFormValues>({
 		resolver: zodResolver(settingsSchema),
-		defaultValues: savedSettings,
+		defaultValues: {
+			triggerMinutes: 5,
+			extensionMinutes: 10,
+		},
+	})
+
+	// Update form when settings are fetched
+	useEffect(() => {
+		if (settings) {
+			form.reset({
+				triggerMinutes: settings.triggerMinutes,
+				extensionMinutes: settings.extensionMinutes,
+			})
+		}
+	}, [settings, form])
+
+	// Mutation for updating settings
+	const updateMutation = useMutation({
+		mutationFn: adminApi.updateSettings,
+		onSuccess: (data) => {
+			queryClient.invalidateQueries({ queryKey: ['admin', 'settings'] })
+			toast({
+				title: 'Lưu cài đặt thành công',
+				description: `Đấu giá sẽ tự động gia hạn ${data.extensionMinutes} phút khi có lượt đặt giá trong ${data.triggerMinutes} phút cuối.`,
+			})
+		},
+		onError: (error: Error & { response?: { data?: { error?: string } } }) => {
+			toast({
+				title: 'Lỗi',
+				description:
+					error?.response?.data?.error || 'Không thể lưu cài đặt',
+				variant: 'destructive',
+			})
+		},
 	})
 
 	const onSubmit = (data: SettingsFormValues) => {
-		// Simulate saving settings
-		setSavedSettings({
-			triggerMinutes: data.triggerMinutes,
-			extensionMinutes: data.extensionMinutes,
-		})
-		toast({
-			title: 'Lưu cài đặt thành công',
-			description: `Đấu giá sẽ tự động gia hạn ${data.extensionMinutes} phút khi có lượt đặt giá trong ${data.triggerMinutes} phút cuối.`,
-		})
+		updateMutation.mutate(data)
+	}
+
+	if (isLoading) {
+		return (
+			<div className="min-h-screen bg-background">
+				<AdminHeader />
+				<main className="container py-8">
+					<div className="flex items-center justify-center h-64">
+						<Loader2 className="h-8 w-8 animate-spin text-primary" />
+						<span className="ml-2">Đang tải cài đặt...</span>
+					</div>
+				</main>
+			</div>
+		)
+	}
+
+	if (isError) {
+		return (
+			<div className="min-h-screen bg-background">
+				<AdminHeader />
+				<main className="container py-8">
+					<div className="flex items-center justify-center h-64">
+						<p className="text-destructive">
+							Không thể tải cài đặt. Vui lòng thử lại.
+						</p>
+					</div>
+				</main>
+			</div>
+		)
 	}
 
 	return (
@@ -148,13 +211,32 @@ const AdminAuctionSettings = () => {
 									/>
 
 									<div className="flex gap-4">
-										<Button type="submit">
-											Lưu cài đặt
+										<Button
+											type="submit"
+											disabled={updateMutation.isPending}
+										>
+											{updateMutation.isPending ? (
+												<>
+													<Loader2 className="h-4 w-4 animate-spin mr-2" />
+													Đang lưu...
+												</>
+											) : (
+												'Lưu cài đặt'
+											)}
 										</Button>
 										<Button
 											type="button"
 											variant="outline"
-											onClick={() => form.reset()}
+											onClick={() =>
+												form.reset({
+													triggerMinutes:
+														settings?.triggerMinutes ||
+														5,
+													extensionMinutes:
+														settings?.extensionMinutes ||
+														10,
+												})
+											}
 										>
 											Đặt lại
 										</Button>
@@ -178,7 +260,7 @@ const AdminAuctionSettings = () => {
 										Thời gian kích hoạt:
 									</span>
 									<span className="text-primary font-semibold">
-										{savedSettings.triggerMinutes} phút
+										{settings?.triggerMinutes || 5} phút
 									</span>
 								</p>
 								<p className="flex items-center gap-2">
@@ -187,7 +269,7 @@ const AdminAuctionSettings = () => {
 										Thời gian gia hạn:
 									</span>
 									<span className="text-primary font-semibold">
-										{savedSettings.extensionMinutes} phút
+										{settings?.extensionMinutes || 10} phút
 									</span>
 								</p>
 								<p className="text-muted-foreground pt-2 border-t">
@@ -196,14 +278,22 @@ const AdminAuctionSettings = () => {
 									</span>{' '}
 									Khi có lượt đặt giá mới trong{' '}
 									<span className="text-foreground font-semibold">
-										{savedSettings.triggerMinutes} phút
+										{settings?.triggerMinutes || 5} phút
 									</span>{' '}
 									cuối, đấu giá sẽ tự động gia hạn thêm{' '}
 									<span className="text-foreground font-semibold">
-										{savedSettings.extensionMinutes} phút
+										{settings?.extensionMinutes || 10} phút
 									</span>
 									.
 								</p>
+								{settings?.updatedAt && (
+									<p className="text-xs text-muted-foreground pt-2">
+										Cập nhật lần cuối:{' '}
+										{new Date(
+											settings.updatedAt
+										).toLocaleString('vi-VN')}
+									</p>
+								)}
 							</div>
 						</CardContent>
 					</Card>

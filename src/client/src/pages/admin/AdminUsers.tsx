@@ -180,13 +180,9 @@ export default function AdminUsers() {
 				description: 'Người dùng đã được xóa',
 			})
 		},
-		onError: (error: any) => {
-			toast({
-				title: 'Lỗi',
-				description:
-					error?.response?.data?.error || 'Không thể xóa người dùng',
-				variant: 'destructive',
-			})
+		onError: () => {
+			// Error đã được xử lý bởi error interceptor
+			// Không cần hiển thị toast ở đây để tránh trùng lặp
 		},
 	})
 
@@ -205,11 +201,12 @@ export default function AdminUsers() {
 		if (
 			!newUserData.firstName.trim() ||
 			!newUserData.lastName.trim() ||
-			!newUserData.email.trim()
+			!newUserData.email.trim() ||
+			!newUserData.address?.trim()
 		) {
 			toast({
 				title: 'Lỗi',
-				description: 'Vui lòng nhập tên, họ và email người dùng',
+				description: 'Vui lòng nhập họ, tên, email và địa chỉ người dùng',
 				variant: 'destructive',
 			})
 			return
@@ -218,10 +215,8 @@ export default function AdminUsers() {
 		createUserMutation.mutate(newUserData)
 	}
 
-	const handleDeleteUser = (userId: string, userName: string) => {
-		if (confirm(`Bạn có chắc muốn xóa người dùng ${userName}?`)) {
-			deleteUserMutation.mutate(userId)
-		}
+	const handleDeleteUser = (userId: string) => {
+		deleteUserMutation.mutate(userId)
 	}
 
 	const getRoleDisplay = (role: string) => {
@@ -508,9 +503,7 @@ export default function AdminUsers() {
 													/>
 												</div>
 												<div className="space-y-2">
-													<Label>
-														Địa chỉ (tùy chọn)
-													</Label>
+													<Label>Địa chỉ</Label>
 													<Input
 														placeholder="Nhập địa chỉ"
 														value={
@@ -525,6 +518,7 @@ export default function AdminUsers() {
 																		.value,
 															})
 														}
+														required
 													/>
 												</div>
 												<div className="space-y-2">
@@ -546,10 +540,22 @@ export default function AdminUsers() {
 														<option value="ROLE BIDDER">
 															Người mua
 														</option>
-														<option value="ROLE SELLER">
-															Người bán
+														<option value="ROLE ADMIN">
+															Admin
 														</option>
 													</select>
+													<p className="text-xs text-muted-foreground">
+														Người bán phải được nâng cấp từ Người mua qua yêu cầu.
+													</p>
+												</div>
+												<div className="p-3 bg-muted rounded-md">
+													<p className="text-sm font-medium mb-1">
+														Thông tin tài khoản mới:
+													</p>
+													<ul className="text-xs text-muted-foreground space-y-1">
+														<li>• Mật khẩu mặc định: <code className="bg-background px-1 py-0.5 rounded">password123</code></li>
+														<li>• Khi đăng nhập lần đầu, người dùng sẽ nhận OTP qua email để xác thực</li>
+													</ul>
 												</div>
 											</div>
 											<DialogFooter>
@@ -688,8 +694,7 @@ export default function AdminUsers() {
 																		<AlertDialogAction
 																			onClick={() =>
 																				handleDeleteUser(
-																					user.id,
-																					user.fullName
+																					user.id
 																				)
 																			}
 																			className="bg-destructive text-destructive-foreground hover:bg-destructive/90"

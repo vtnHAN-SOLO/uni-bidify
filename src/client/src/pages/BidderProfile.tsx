@@ -125,9 +125,21 @@ export default function BidderProfile() {
 		}
 	}
 
-	const handleUpgradeRequest = () => {
-		toast.success('Yêu cầu nâng cấp đã được gửi. Vui lòng chờ admin duyệt.')
-		setShowUpgradeDialog(false)
+	const handleUpgradeRequest = async () => {
+		try {
+			const response = await userApi.requestUpgrade()
+			if (response.success) {
+				toast.success(response.message)
+				// Reload to update profile status
+				window.location.reload()
+			}
+		} catch (error: any) {
+			toast.error(
+				error.response?.data?.error || 'Gửi yêu cầu nâng cấp thất bại'
+			)
+		} finally {
+			setShowUpgradeDialog(false)
+		}
 	}
 
 	const handleUpdateProfile = async () => {
@@ -200,20 +212,31 @@ export default function BidderProfile() {
 										</span>
 									</div>
 
-									<Button
-										variant="outline"
-										className="w-full gap-2"
-										onClick={handleSwitchToSeller}
-									>
-										{profile?.role === 'ROLE SELLER' ? (
-											<>
-												Chuyển sang hồ sơ Seller
-												<ArrowRight className="h-4 w-4" />
-											</>
-										) : (
-											'Yêu cầu nâng cấp Seller'
-										)}
-									</Button>
+									{profile?.upgradeRequestStatus === 'PENDING' ? (
+										<Button
+											variant="outline"
+											className="w-full gap-2"
+											disabled
+										>
+											<Loader2 className="h-4 w-4 animate-spin" />
+											Đang chờ duyệt nâng cấp
+										</Button>
+									) : (
+										<Button
+											variant="outline"
+											className="w-full gap-2"
+											onClick={handleSwitchToSeller}
+										>
+											{profile?.role === 'ROLE SELLER' ? (
+												<>
+													Chuyển sang hồ sơ Seller
+													<ArrowRight className="h-4 w-4" />
+												</>
+											) : (
+												'Yêu cầu nâng cấp Seller'
+											)}
+										</Button>
+									)}
 								</div>
 							</CardContent>
 						</Card>
@@ -434,40 +457,45 @@ export default function BidderProfile() {
 											</p>
 										) : (
 											<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-												{wonProducts.map((item) => (
-													<div key={item._id} className="relative">
-														<ProductCard
-															id={item._id}
-															image={item.images?.[0]}
-															title={item.name}
-															currentPrice={item.finalPrice}
-															highestBidder={'🏆 Bạn đã thắng'}
-															bidCount={0}
-															endTime={new Date(item.endTime)}
-															category={item.categoryName}
-														/>
-														<Badge className="absolute top-2 right-2 bg-green-600">
-															🎉 Đã thắng
-														</Badge>
-														<div className="text-sm text-muted-foreground mt-1 px-2">
-															<p>Người bán: {item.sellerName}</p>
-															{!item.isSold && (
-																<Button
-																	size="sm"
-																	className="mt-2 w-full"
-																	onClick={() => navigate(`/order/${item._id}`)}
-																>
-																	Tiến hành thanh toán
-																</Button>
-															)}
-															{item.isSold && (
-																<Badge variant="outline" className="mt-2">
-																	✅ Đã hoàn thành giao dịch
-																</Badge>
-															)}
+												{wonProducts.map((item) => {
+													
+													return (
+														<div key={item._id} className="relative">
+															<ProductCard
+																id={item._id}
+																image={item.images?.[0]}
+																title={item.name}
+																currentPrice={item.finalPrice}
+																highestBidder={'🏆 Bạn đã thắng'}
+																bidCount={0}
+																endTime={new Date(item.endTime)}
+																category={item.categoryName}
+															/>
+															{/* Badge Đã thắng - góc trái trên cùng */}
+															<Badge className="absolute top-2 left-2 z-10 bg-green-600">
+																🎉 Đã thắng
+															</Badge>
+															
+															<div className="text-sm text-muted-foreground mt-1 px-2">
+																<p>Người bán: {item.sellerName}</p>
+																{!item.isSold && (
+																	<Button
+																		size="sm"
+																		className="mt-2 w-full"
+																		onClick={() => navigate(`/order-completion/${item._id}`)}
+																	>
+																		Tiến hành thanh toán
+																	</Button>
+																)}
+																{item.isSold && (
+																	<Badge variant="outline" className="mt-2">
+																		✅ Đã hoàn thành giao dịch
+																	</Badge>
+																)}
+															</div>
 														</div>
-													</div>
-												))}
+													)
+												})}
 											</div>
 										)}
 									</CardContent>

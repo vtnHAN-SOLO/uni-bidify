@@ -6,6 +6,7 @@ import type {
 	ProductsByCategoryNameResponse,
 	ProductsListResponse,
 } from '../types/product.types'
+import type { AuctionSettings } from './admin.api'
 
 /**
  * Fetch products for home page (ending soon, most bids, highest price)
@@ -198,6 +199,7 @@ export interface SearchProductsParams {
 	order?: 'asc' | 'desc'
 	page?: number
 	limit?: number
+	includeEnded?: boolean // Include ended auctions
 }
 
 export interface SearchProductsResponse {
@@ -218,4 +220,16 @@ export async function searchProducts(
 		{ params }
 	)
 	return response.data
+}
+
+/**
+ * Fetch auction settings (trigger minutes, extension minutes)
+ * Re-uses AuctionSettings type from admin.api
+ */
+export async function fetchAuctionSettings(): Promise<AuctionSettings> {
+	const response = await apiClient.get<{
+		success: boolean
+		settings: AuctionSettings
+	}>(API_ENDPOINTS.PRODUCTS.AUCTION_SETTINGS)
+	return response.data.settings
 }

@@ -227,6 +227,41 @@ export const getAdminProducts = async (
 }
 
 // ============================================
+// SETTINGS API FUNCTIONS
+// ============================================
+
+export interface AuctionSettings {
+	triggerMinutes: number
+	extensionMinutes: number
+	updatedAt?: string
+}
+
+/**
+ * Get auction settings
+ */
+export const getSettings = async (): Promise<AuctionSettings> => {
+	const response = await apiClient.get<{
+		success: boolean
+		settings: AuctionSettings
+	}>(API_ENDPOINTS.ADMIN.SETTINGS)
+	return response.data.settings
+}
+
+/**
+ * Update auction settings
+ */
+export const updateSettings = async (
+	data: Partial<AuctionSettings>
+): Promise<AuctionSettings> => {
+	const response = await apiClient.put<{
+		success: boolean
+		message: string
+		settings: AuctionSettings
+	}>(API_ENDPOINTS.ADMIN.SETTINGS, data)
+	return response.data.settings
+}
+
+// ============================================
 // ADMIN API OBJECT (for convenience)
 // ============================================
 
@@ -249,4 +284,7 @@ export const adminApi = {
 	getAdminProducts,
 	getProductDetail,
 	deleteProduct,
+	// Settings
+	getSettings,
+	updateSettings,
 }

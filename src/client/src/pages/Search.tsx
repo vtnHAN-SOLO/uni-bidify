@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Header } from '@/components/Header'
 import { ProductCard } from '@/components/ProductCard'
 import { Button } from '@/components/ui/input/button'
 import { Input } from '@/components/ui/input/input'
+import { Checkbox } from '@/components/ui/input/checkbox'
+import { Label } from '@/components/ui/input/label'
 import {
 	Select,
 	SelectContent,
@@ -16,6 +18,23 @@ import { Search as SearchIcon, ChevronLeft, ChevronRight, Loader2 } from 'lucide
 import { searchProducts, SearchProductsParams } from '@/services/api/products.api'
 import { fetchCategories, Category } from '@/services/api/categories.api'
 
+// Custom debounce hook
+function useDebounce<T>(value: T, delay: number): T {
+	const [debouncedValue, setDebouncedValue] = useState<T>(value)
+
+	useEffect(() => {
+		const timer = setTimeout(() => {
+			setDebouncedValue(value)
+		}, delay)
+
+		return () => {
+			clearTimeout(timer)
+		}
+	}, [value, delay])
+
+	return debouncedValue
+}
+
 export default function Search() {
 	const [searchParams, setSearchParams] = useSearchParams()
 	const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '')
@@ -23,8 +42,18 @@ export default function Search() {
 		searchParams.get('category') || 'all'
 	)
 	const [sortBy, setSortBy] = useState<'endTime-desc' | 'price-asc' | 'price-desc'>('endTime-desc')
+	const [includeEnded, setIncludeEnded] = useState(
+		searchParams.get('includeEnded') === 'true'
+	)
 	const [currentPage, setCurrentPage] = useState(1)
 	const productsPerPage = 12
+
+	// Debounce search query for real-time search (300ms delay)
+	const debouncedSearchQuery = useDebounce(searchQuery, 300)
+	const debouncedCategory = useDebounce(category, 300)
+
+	// Track if this is the initial load from URL
+	const isInitialLoad = useRef(true)
 
 	// Fetch categories for dropdown
 	const { data: categories = [] } = useQuery({
@@ -38,8 +67,7 @@ export default function Search() {
 		name: parent.name,
 	}))
 
-	// Build search params for API
-	// Parse sortBy into sort field and order
+	// Build search params for API using debounced values
 	const [sortField, sortOrder] = sortBy.split('-') as ['endTime' | 'price', 'asc' | 'desc']
 	const apiParams: SearchProductsParams = {
 		page: currentPage,
@@ -48,15 +76,37 @@ export default function Search() {
 		order: sortOrder,
 	}
 
-	const queryFromUrl = searchParams.get('q')
-	const categoryFromUrl = searchParams.get('category')
+	// Use debounced values for real-time search
+	if (debouncedSearchQuery.trim()) {
+		apiParams.q = debouncedSearchQuery.trim()
+	}
+	if (debouncedCategory && debouncedCategory !== 'all') {
+		apiParams.categoryName = debouncedCategory
+	}
+	if (includeEnded) {
+		apiParams.includeEnded = true
+	}
 
-	if (queryFromUrl) {
-		apiParams.q = queryFromUrl
-	}
-	if (categoryFromUrl && categoryFromUrl !== 'all') {
-		apiParams.categoryName = categoryFromUrl
-	}
+	// Update URL when debounced values change (not on initial load)
+	useEffect(() => {
+		if (isInitialLoad.current) {
+			isInitialLoad.current = false
+			return
+		}
+
+		const params = new URLSearchParams()
+		if (debouncedSearchQuery.trim()) {
+			params.set('q', debouncedSearchQuery.trim())
+		}
+		if (debouncedCategory !== 'all') {
+			params.set('category', debouncedCategory)
+		}
+		if (includeEnded) {
+			params.set('includeEnded', 'true')
+		}
+		setSearchParams(params, { replace: true })
+		setCurrentPage(1)
+	}, [debouncedSearchQuery, debouncedCategory, includeEnded, setSearchParams])
 
 	// Fetch search results
 	const {
@@ -72,19 +122,10 @@ export default function Search() {
 	const totalProducts = searchResult?.data?.total || 0
 	const totalPages = searchResult?.data?.totalPages || 1
 
-	useEffect(() => {
-		setSearchQuery(searchParams.get('q') || '')
-		setCategory(searchParams.get('category') || 'all')
-		setCurrentPage(1)
-	}, [searchParams])
-
+	// Keep handleSearch for form submit (optional, for pressing Enter key)
 	const handleSearch = (e: React.FormEvent) => {
 		e.preventDefault()
-		const params = new URLSearchParams()
-		if (searchQuery.trim()) params.set('q', searchQuery.trim())
-		if (category !== 'all') params.set('category', category)
-		setSearchParams(params)
-		setCurrentPage(1)
+		// Form submit is now optional - search happens automatically via debounce
 	}
 
 	const handleSortChange = (value: string) => {
@@ -144,6 +185,21 @@ export default function Search() {
 								<SearchIcon className="h-5 w-5 mr-2" />
 								Tìm kiếm
 							</Button>
+						</div>
+						<div className="flex items-center space-x-2">
+							<Checkbox
+								id="includeEnded"
+								checked={includeEnded}
+								onCheckedChange={(checked) =>
+									setIncludeEnded(checked === true)
+								}
+							/>
+							<Label
+								htmlFor="includeEnded"
+								className="text-sm text-muted-foreground cursor-pointer"
+							>
+								Bao gồm sản phẩm đã kết thúc đấu giá
+							</Label>
 						</div>
 					</form>
 				</div>

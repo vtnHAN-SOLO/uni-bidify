@@ -28,6 +28,8 @@ import {
 	Award,
 	ArrowLeft,
 	Loader2,
+	Clock,
+	AlertTriangle,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { userApi } from '@/services'
@@ -104,6 +106,15 @@ export default function SellerProfile() {
 
 	const profile = profileData?.user
 
+	// Calculate seller expiry status
+	const sellerExpiryDate = user?.sellerExpiryDate ? new Date(user.sellerExpiryDate) : null
+	const now = new Date()
+	const isSellerExpired = sellerExpiryDate ? now > sellerExpiryDate : false
+	const daysUntilExpiry = sellerExpiryDate
+		? Math.ceil((sellerExpiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+		: null
+	const isExpiringSoon = daysUntilExpiry !== null && daysUntilExpiry > 0 && daysUntilExpiry <= 2
+
 	const handleSwitchToBidder = () => {
 		navigate('/profile')
 	}
@@ -152,6 +163,56 @@ export default function SellerProfile() {
 							</CardHeader>
 							<CardContent>
 								<div className="space-y-4">
+									{/* Seller Expiry Warning */}
+									{sellerExpiryDate && (
+										<div className={`p-3 rounded-lg ${
+											isSellerExpired
+												? 'bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700'
+												: isExpiringSoon
+													? 'bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-300 dark:border-yellow-700'
+													: 'bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700'
+										}`}>
+											<div className="flex items-center gap-2 mb-1">
+												{isSellerExpired ? (
+													<AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
+												) : (
+													<Clock className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+												)}
+												<span className={`text-sm font-medium ${
+													isSellerExpired
+														? 'text-red-700 dark:text-red-300'
+														: isExpiringSoon
+															? 'text-yellow-700 dark:text-yellow-300'
+															: 'text-blue-700 dark:text-blue-300'
+												}`}>
+													{isSellerExpired
+														? 'Quyền bán hàng đã hết hạn'
+														: isExpiringSoon
+															? 'Sắp hết hạn bán hàng'
+															: 'Quyền bán hàng'}
+												</span>
+											</div>
+											<p className={`text-xs ${
+												isSellerExpired
+													? 'text-red-600 dark:text-red-400'
+													: isExpiringSoon
+														? 'text-yellow-600 dark:text-yellow-400'
+														: 'text-blue-600 dark:text-blue-400'
+											}`}>
+												{isSellerExpired
+													? 'Bạn không thể đăng sản phẩm mới. Vui lòng yêu cầu nâng cấp lại.'
+													: `Hết hạn: ${sellerExpiryDate.toLocaleDateString('vi-VN', {
+														year: 'numeric',
+														month: 'long',
+														day: 'numeric',
+														hour: '2-digit',
+														minute: '2-digit'
+													})} (còn ${daysUntilExpiry} ngày)`
+												}
+											</p>
+										</div>
+									)}
+
 									<div className="flex items-center justify-between p-3 bg-muted rounded-lg">
 										<div className="flex items-center gap-2">
 											<Star className="h-5 w-5 text-yellow-500 fill-yellow-500" />

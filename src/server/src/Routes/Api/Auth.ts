@@ -89,7 +89,7 @@ router.post('/login', authLimiter, async (req: Request, res: Response) => {
 		// Verify reCAPTCHA
 		if (!recaptchaToken) {
 			return res.status(400).json({
-				error: 'reCAPTCHA token is required.',
+				error: 'Vui lòng xác minh reCAPTCHA.',
 			})
 		}
 
@@ -111,7 +111,7 @@ router.post('/login', authLimiter, async (req: Request, res: Response) => {
 		}
 		if (!recaptchaResult.success || recaptchaResult.score < 0.5) {
 			return res.status(400).json({
-				error: 'reCAPTCHA verification failed. Please try again.',
+				error: 'Xác minh reCAPTCHA thất bại. Vui lòng thử lại.',
 			})
 		}
 
@@ -119,28 +119,25 @@ router.post('/login', authLimiter, async (req: Request, res: Response) => {
 		if (!email) {
 			return res
 				.status(400)
-				.json({ error: 'You must enter an email address.' })
+				.json({ error: 'Vui lòng nhập địa chỉ email.' })
 		}
 		if (!password) {
-			return res.status(400).json({ error: 'You must enter a password.' })
+			return res.status(400).json({ error: 'Vui lòng nhập mật khẩu.' })
 		}
 
 		// Find user by email
 		const user = await User.findOne({ email })
 		if (!user) {
+			// Dùng thông báo chung để bảo mật (không tiết lộ email có tồn tại hay không)
 			return res
 				.status(400)
-				.send({ error: 'No user found for this email address.' })
+				.send({ error: 'Email hoặc mật khẩu không đúng.' })
 		}
-		if (!user.isVerified) {
-			return res.status(400).json({
-				error: 'Please verify your email first. Check your inbox for the OTP code.',
-			})
-		}
+
 		// Ensure user registered via email, not social provider
 		if (user.provider !== EMAIL_PROVIDER.Email) {
 			return res.status(400).send({
-				error: `That email address is already in use using ${user.provider} provider.`,
+				error: `Email này đã được đăng ký qua ${user.provider}.`,
 			})
 		}
 
@@ -148,15 +145,43 @@ router.post('/login', authLimiter, async (req: Request, res: Response) => {
 		if (!user.password) {
 			return res
 				.status(400)
-				.json({ error: 'Password not set for this user.' })
+				.json({ error: 'Tài khoản chưa được thiết lập mật khẩu.' })
 		}
 
-		// Check password
+		// Check password FIRST before checking verification status
 		const isMatch = await bcrypt.compare(password, user.password)
 		if (!isMatch) {
+			// Dùng thông báo chung để bảo mật
 			return res.status(400).json({
 				success: false,
-				error: 'Password Incorrect',
+				error: 'Email hoặc mật khẩu không đúng.',
+			})
+		}
+
+		// Only after password is verified, check if account needs OTP verification
+		if (!user.isVerified) {
+			// Generate new OTP and send to user
+			const { otp, expires } = generateOTPWithExpiry()
+			user.otp = otp
+			user.otpExpires = expires
+			await user.save()
+
+			// Send OTP email
+			await MailService.sendMail(user.email, 'register-otp', {
+				otp,
+				expiresIn: '10 minutes',
+				name: { firstName: user.firstName, lastName: user.lastName },
+			})
+
+			console.log('✅ OTP resent for unverified login:', email)
+			console.log('🔐 OTP (DEV ONLY):', otp)
+
+			// Return special response for frontend to redirect to OTP page
+			return res.status(200).json({
+				success: false,
+				needsVerification: true,
+				email: user.email,
+				message: 'Tài khoản chưa được xác thực. Mã OTP đã được gửi đến email của bạn.',
 			})
 		}
 
@@ -209,7 +234,7 @@ router.post('/register', authLimiter, async (req: Request, res: Response) => {
 		// Verify reCAPTCHA
 		if (!recaptchaToken) {
 			return res.status(400).json({
-				error: 'reCAPTCHA token is required.',
+				error: 'Vui lòng xác minh reCAPTCHA.',
 			})
 		}
 
@@ -234,7 +259,7 @@ router.post('/register', authLimiter, async (req: Request, res: Response) => {
 		}
 		if (!recaptchaResult.success || recaptchaResult.score < 0.6) {
 			return res.status(400).json({
-				error: 'reCAPTCHA verification failed. Please try again.',
+				error: 'Xác minh reCAPTCHA thất bại. Vui lòng thử lại.',
 			})
 		}
 
@@ -242,22 +267,22 @@ router.post('/register', authLimiter, async (req: Request, res: Response) => {
 		if (!email) {
 			return res
 				.status(400)
-				.json({ error: 'You must enter an email address.' })
+				.json({ error: 'Vui lòng nhập địa chỉ email.' })
 		}
 		if (!firstName || !lastName) {
 			return res
 				.status(400)
-				.json({ error: 'You must enter your full name.' })
+				.json({ error: 'Vui lòng nhập họ và tên.' })
 		}
 		if (!password) {
-			return res.status(400).json({ error: 'You must enter a password.' })
+			return res.status(400).json({ error: 'Vui lòng nhập mật khẩu.' })
 		}
 
 		// Check if user already exists
 		if (await User.findOne({ email })) {
 			return res
 				.status(400)
-				.json({ error: 'That email address is already in use.' })
+				.json({ error: 'Email này đã được sử dụng.' })
 		}
 
 		// Hash password
@@ -294,7 +319,7 @@ router.post('/register', authLimiter, async (req: Request, res: Response) => {
 		res.status(200).json({
 			success: true,
 			message:
-				'Registration successful! Please check your email for the OTP code.',
+				'Đăng ký thành công! Vui lòng kiểm tra email để nhận mã OTP.',
 			email: registeredUser.email, // Send email back for OTP verification step
 		})
 	} catch (error: any) {
@@ -302,7 +327,7 @@ router.post('/register', authLimiter, async (req: Request, res: Response) => {
 		res.status(400).json({
 			error:
 				error.message ||
-				'Your request could not be processed. Please try again.',
+				'Không thể xử lý yêu cầu. Vui lòng thử lại.',
 		})
 	}
 })
@@ -318,7 +343,7 @@ router.post('/verify-otp', authLimiter, async (req: Request, res: Response) => {
 		// Validate input
 		if (!email || !otpCode) {
 			return res.status(400).json({
-				error: 'Email and OTP are required.',
+				error: 'Vui lòng nhập email và mã OTP.',
 			})
 		}
 
@@ -327,14 +352,14 @@ router.post('/verify-otp', authLimiter, async (req: Request, res: Response) => {
 
 		if (!user) {
 			return res.status(400).json({
-				error: 'Invalid email or OTP.',
+				error: 'Email hoặc mã OTP không hợp lệ.',
 			})
 		}
 
 		// Check if already verified
 		if (user.isVerified) {
 			return res.status(400).json({
-				error: 'This account is already verified. Please login.',
+				error: 'Tài khoản đã được xác thực. Vui lòng đăng nhập.',
 			})
 		}
 
@@ -368,7 +393,7 @@ router.post('/verify-otp', authLimiter, async (req: Request, res: Response) => {
 		// Respond with user info and token
 		res.status(200).json({
 			success: true,
-			message: 'Email verified successfully! Welcome!',
+			message: 'Xác thực email thành công! Chào mừng bạn!',
 			token: `Bearer ${token}`,
 			user: {
 				id: user.id,
@@ -383,7 +408,7 @@ router.post('/verify-otp', authLimiter, async (req: Request, res: Response) => {
 	} catch (error: any) {
 		console.error('❌ Verify OTP error:', error)
 		res.status(400).json({
-			error: error.message || 'Failed to verify OTP.',
+			error: error.message || 'Không thể xác thực OTP.',
 		})
 	}
 })
@@ -399,7 +424,7 @@ router.post('/resend-otp', authLimiter, async (req: Request, res: Response) => {
 		// Validate input
 		if (!email) {
 			return res.status(400).json({
-				error: 'Email is required.',
+				error: 'Vui lòng nhập địa chỉ email.',
 			})
 		}
 
@@ -409,7 +434,7 @@ router.post('/resend-otp', authLimiter, async (req: Request, res: Response) => {
 		if (!user) {
 			console.log('❌ [RESEND OTP] User not found:', email)
 			return res.status(400).json({
-				error: 'No account found with this email.',
+				error: 'Không tìm thấy tài khoản với email này.',
 			})
 		}
 
@@ -417,7 +442,7 @@ router.post('/resend-otp', authLimiter, async (req: Request, res: Response) => {
 		if (user.isVerified) {
 			console.log('⚠️ [RESEND OTP] Already verified:', email)
 			return res.status(400).json({
-				error: 'This account is already verified. Please login.',
+				error: 'Tài khoản đã được xác thực. Vui lòng đăng nhập.',
 			})
 		}
 
@@ -440,12 +465,12 @@ router.post('/resend-otp', authLimiter, async (req: Request, res: Response) => {
 
 		res.status(200).json({
 			success: true,
-			message: 'A new OTP has been sent to your email.',
+			message: 'Mã OTP mới đã được gửi đến email của bạn.',
 		})
 	} catch (error: any) {
 		console.error('❌ Resend OTP error:', error)
 		res.status(400).json({
-			error: error.message || 'Failed to resend OTP.',
+			error: error.message || 'Không thể gửi lại mã OTP.',
 		})
 	}
 })
@@ -464,7 +489,7 @@ router.post(
 			// Verify reCAPTCHA
 			if (!recaptchaToken) {
 				return res.status(400).json({
-					error: 'reCAPTCHA token is required.',
+					error: 'Vui lòng xác minh reCAPTCHA.',
 				})
 			}
 
@@ -481,14 +506,14 @@ router.post(
 
 			if (!recaptchaResult.success || recaptchaResult.score < 0.4) {
 				return res.status(400).json({
-					error: 'reCAPTCHA verification failed.',
+					error: 'Xác minh reCAPTCHA thất bại.',
 				})
 			}
 
 			// Validate email
 			if (!email) {
 				return res.status(400).json({
-					error: 'You must enter an email address.',
+					error: 'Vui lòng nhập địa chỉ email.',
 				})
 			}
 
@@ -500,7 +525,7 @@ router.post(
 				return res.status(200).json({
 					success: true,
 					message:
-						'If that email exists, an OTP has been sent to it.',
+						'Nếu email tồn tại, mã OTP đã được gửi.',
 				})
 			}
 
@@ -524,12 +549,12 @@ router.post(
 
 			res.status(200).json({
 				success: true,
-				message: 'An OTP has been sent to your email.',
+				message: 'Mã OTP đã được gửi đến email của bạn.',
 			})
 		} catch (error: any) {
 			console.error('❌ Forgot password error:', error)
 			res.status(400).json({
-				error: error.message || 'Your request could not be processed.',
+				error: error.message || 'Không thể xử lý yêu cầu.',
 			})
 		}
 	}
@@ -549,7 +574,7 @@ router.post(
 			// Validate input
 			if (!email || !otp) {
 				return res.status(400).json({
-					error: 'Email and OTP are required.',
+					error: 'Vui lòng nhập email và mã OTP.',
 				})
 			}
 
@@ -558,7 +583,7 @@ router.post(
 
 			if (!user) {
 				return res.status(400).json({
-					error: 'Invalid email or OTP.',
+					error: 'Email hoặc mã OTP không hợp lệ.',
 				})
 			}
 
@@ -586,13 +611,13 @@ router.post(
 
 			res.status(200).json({
 				success: true,
-				message: 'OTP verified successfully.',
+				message: 'Xác thực OTP thành công.',
 				resetToken, // Send to frontend
 			})
 		} catch (error: any) {
 			console.error('❌ Verify OTP error:', error)
 			res.status(400).json({
-				error: error.message || 'Failed to verify OTP.',
+				error: error.message || 'Không thể xác thực OTP.',
 			})
 		}
 	}
@@ -612,13 +637,13 @@ router.post(
 			// Validate input
 			if (!resetToken || !newPassword) {
 				return res.status(400).json({
-					error: 'Reset token and new password are required.',
+					error: 'Vui lòng cung cấp mã xác thực và mật khẩu mới.',
 				})
 			}
 
 			if (newPassword.length < 6) {
 				return res.status(400).json({
-					error: 'Password must be at least 6 characters long.',
+					error: 'Mật khẩu phải có ít nhất 6 ký tự.',
 				})
 			}
 
@@ -630,7 +655,7 @@ router.post(
 
 			if (!user) {
 				return res.status(400).json({
-					error: 'Invalid or expired reset token.',
+					error: 'Mã xác thực không hợp lệ hoặc đã hết hạn.',
 				})
 			}
 
@@ -657,12 +682,12 @@ router.post(
 			res.status(200).json({
 				success: true,
 				message:
-					'Password reset successfully. You can now login with your new password.',
+					'Đặt lại mật khẩu thành công. Bạn có thể đăng nhập bằng mật khẩu mới.',
 			})
 		} catch (error: any) {
 			console.error('❌ Reset password error:', error)
 			res.status(400).json({
-				error: error.message || 'Failed to reset password.',
+				error: error.message || 'Không thể đặt lại mật khẩu.',
 			})
 		}
 	}
@@ -902,6 +927,8 @@ router.get('/me', Auth, async (req: Request, res: Response) => {
 				role: user.role,
 				provider: user.provider,
 				createdAt: user.createdAt,
+				sellerExpiryDate: user.sellerExpiryDate, // Add seller expiry date
+				upgradeRequestStatus: user.upgradeRequestStatus,
 			},
 		})
 	} catch (error: any) {

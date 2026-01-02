@@ -65,6 +65,7 @@ import { AdminHeader } from './admin/AdminHeader'
 import { ProductCard } from '@/components/ProductCard'
 import { CountdownTimer } from '@/components/CountdownTimer'
 import { useAuth } from '@/contexts/AuthContext'
+import { useWatchlist } from '@/contexts/WatchlistContext'
 import { UserRole } from '@/services/types/auth.types'
 import type { ProductDetailDTO } from '../services/types/product.types'
 
@@ -73,6 +74,7 @@ const ProductDetail = () => {
 	const navigate = useNavigate()
 	const { toast } = useToast()
 	const { user, isAuthenticated } = useAuth()
+	const { isInWatchlist, toggleWatchlist } = useWatchlist()
 	const queryClient = useQueryClient()
 
 	// Check user roles
@@ -136,7 +138,6 @@ const ProductDetail = () => {
 	const [question, setQuestion] = useState('')
 	const [replyText, setReplyText] = useState('')
 	const [replyingTo, setReplyingTo] = useState<string | null>(null)
-	const [isFavorite, setIsFavorite] = useState(false)
 	const [showBidConfirm, setShowBidConfirm] = useState(false)
 	const [showBuyNowConfirm, setShowBuyNowConfirm] = useState(false)
 
@@ -529,6 +530,7 @@ const ProductDetail = () => {
 										endTime={new Date(p.endTime)}
 										isNew={p.isNew}
 										category={p.categoryName || 'Khác'}
+										hideWatchlist={isAdmin}
 									/>
 								))}
 							</div>
@@ -550,22 +552,27 @@ const ProductDetail = () => {
 									className="h-full w-full object-cover"
 								/>
 								<div className="absolute right-4 top-4 flex gap-2">
-									<Button
-										variant="secondary"
-										size="icon"
-										className="h-10 w-10 rounded-full bg-white/90 backdrop-blur-sm hover:bg-white shadow-lg"
-										onClick={() =>
-											setIsFavorite(!isFavorite)
-										}
-									>
-										<Heart
-											className={`h-5 w-5 transition-all ${
-												isFavorite
-													? 'fill-red-500 text-red-500'
-													: 'text-gray-700 hover:text-red-500'
-											}`}
-										/>
-									</Button>
+									{/* Hide watchlist button for Admin */}
+									{!isAdmin && (
+										<Button
+											variant="secondary"
+											size="icon"
+											className="h-10 w-10 rounded-full bg-white/90 backdrop-blur-sm hover:bg-white shadow-lg"
+											onClick={(e) => {
+												e.preventDefault()
+												e.stopPropagation()
+												if (id) toggleWatchlist(id)
+											}}
+										>
+											<Heart
+												className={`h-5 w-5 transition-all ${
+													id && isInWatchlist(id)
+														? 'fill-red-500 text-red-500'
+														: 'text-gray-700 hover:text-red-500'
+												}`}
+											/>
+										</Button>
+									)}
 									<Button
 										variant="secondary"
 										size="icon"
@@ -713,106 +720,116 @@ const ProductDetail = () => {
 								</CardContent>
 							</Card>
 
-							{/* Bidding Section */}
-							<Card className="border-primary">
-								<CardContent className="p-6 space-y-4">
-									{/* Show current user's bid status */}
-									{myBid && (
-										<div className={`p-3 rounded-lg ${myBid.isWinning ? 'bg-green-100 border border-green-500' : 'bg-yellow-100 border border-yellow-500'}`}>
-											<p className={`text-sm font-medium ${myBid.isWinning ? 'text-green-700' : 'text-yellow-700'}`}>
-												{myBid.isWinning ? '🏆 Bạn đang dẫn đầu!' : '⚠️ Bạn đã bị vượt qua'}
-											</p>
-											<p className="text-sm text-muted-foreground">
-												Giá tối đa của bạn: {myBid.maxPrice.toLocaleString('vi-VN')}₫
-											</p>
-										</div>
-									)}
+							{/* Bidding Section - Hide for Admin */}
+							{isAdmin ? (
+								<Card className="border-muted">
+									<CardContent className="p-6">
+										<p className="text-center text-muted-foreground">
+											Admin chỉ có quyền xem, không thể tham gia đấu giá.
+										</p>
+									</CardContent>
+								</Card>
+							) : (
+								<Card className="border-primary">
+									<CardContent className="p-6 space-y-4">
+										{/* Show current user's bid status */}
+										{myBid && (
+											<div className={`p-3 rounded-lg ${myBid.isWinning ? 'bg-green-100 border border-green-500' : 'bg-yellow-100 border border-yellow-500'}`}>
+												<p className={`text-sm font-medium ${myBid.isWinning ? 'text-green-700' : 'text-yellow-700'}`}>
+													{myBid.isWinning ? '🏆 Bạn đang dẫn đầu!' : '⚠️ Bạn đã bị vượt qua'}
+												</p>
+												<p className="text-sm text-muted-foreground">
+													Giá tối đa của bạn: {myBid.maxPrice.toLocaleString('vi-VN')}₫
+												</p>
+											</div>
+										)}
 
-									<div className="space-y-2">
-										<label className="text-sm font-medium">
-											Đặt giá tối đa (Auto-bid)
-										</label>
-										<div className="flex gap-2">
-											<Input
-												type="number"
-												value={maxBidAmount}
-												onChange={(e) =>
-													setMaxBidAmount(
-														Number(e.target.value)
-													)
-												}
-												min={
+										<div className="space-y-2">
+											<label className="text-sm font-medium">
+												Đặt giá tối đa (Auto-bid)
+											</label>
+											<div className="flex gap-2">
+												<Input
+													type="number"
+													value={maxBidAmount}
+													onChange={(e) =>
+														setMaxBidAmount(
+															Number(e.target.value)
+														)
+													}
+													min={
+														product.currentPrice +
+														(product.priceStep || 0)
+													}
+													step={
+														product.priceStep || 100000
+													}
+													className="text-lg font-semibold"
+													disabled={isProductSeller}
+												/>
+												<span className="flex items-center text-lg font-semibold">
+													₫
+												</span>
+											</div>
+											<p className="text-sm text-muted-foreground">
+												Bước giá:{' '}
+												{(
+													product.priceStep || 0
+												).toLocaleString('vi-VN')}
+												₫ | Giá tối thiểu:{' '}
+												{(
 													product.currentPrice +
 													(product.priceStep || 0)
-												}
-												step={
-													product.priceStep || 100000
-												}
-												className="text-lg font-semibold"
-												disabled={isProductSeller}
-											/>
-											<span className="flex items-center text-lg font-semibold">
+												).toLocaleString('vi-VN')}
 												₫
-											</span>
+											</p>
+											<p className="text-xs text-blue-600">
+												💡 Hệ thống sẽ tự động đấu giá cho bạn đến mức giá tối đa này
+											</p>
 										</div>
-										<p className="text-sm text-muted-foreground">
-											Bước giá:{' '}
-											{(
-												product.priceStep || 0
-											).toLocaleString('vi-VN')}
-											₫ | Giá tối thiểu:{' '}
-											{(
-												product.currentPrice +
-												(product.priceStep || 0)
-											).toLocaleString('vi-VN')}
-											₫
-										</p>
-										<p className="text-xs text-blue-600">
-											💡 Hệ thống sẽ tự động đấu giá cho bạn đến mức giá tối đa này
-										</p>
-									</div>
 
-									<div className="flex gap-2">
-										<Button
-											size="lg"
-											className="flex-1"
-											onClick={handlePlaceBid}
-											disabled={placeBidMutation.isPending || isProductSeller}
-										>
-											{placeBidMutation.isPending ? (
-												<Loader2 className="mr-2 h-5 w-5 animate-spin" />
-											) : (
-												<Gavel className="mr-2 h-5 w-5" />
-											)}
-											{isProductSeller ? 'Không thể đấu giá' : 'Đặt giá'}
-										</Button>
-										{product.buyNowPrice && (
+										<div className="flex gap-2">
 											<Button
 												size="lg"
-												variant="outline"
-												className="flex-1 border-accent text-accent hover:bg-accent hover:text-accent-foreground"
-												disabled={isProductSeller || buyNowMutation.isPending}
-												onClick={handleBuyNow}
+												className="flex-1"
+												onClick={handlePlaceBid}
+												disabled={placeBidMutation.isPending || isProductSeller}
 											>
-												{buyNowMutation.isPending ? (
+												{placeBidMutation.isPending ? (
 													<Loader2 className="mr-2 h-5 w-5 animate-spin" />
 												) : (
-													<ShoppingCart className="mr-2 h-5 w-5" />
+													<Gavel className="mr-2 h-5 w-5" />
 												)}
-												Mua ngay
+												{isProductSeller ? 'Không thể đấu giá' : 'Đặt giá'}
 											</Button>
-										)}
-									</div>
+											{product.buyNowPrice && (
+												<Button
+													size="lg"
+													variant="outline"
+													className="flex-1 border-accent text-accent hover:bg-accent hover:text-accent-foreground"
+													disabled={isProductSeller || buyNowMutation.isPending}
+													onClick={handleBuyNow}
+												>
+													{buyNowMutation.isPending ? (
+														<Loader2 className="mr-2 h-5 w-5 animate-spin" />
+													) : (
+														<ShoppingCart className="mr-2 h-5 w-5" />
+													)}
+													Mua ngay
+												</Button>
+											)}
+										</div>
 
-									{product.autoExtend && (
-										<p className="text-xs text-muted-foreground text-center">
-											⚡ Sản phẩm có tự động gia hạn 10
-											phút nếu có lượt đấu giá mới trước
-											khi kết thúc 5 phút
-										</p>
-									)}
-								</CardContent>
-							</Card>
+										{product.autoExtend && (
+											<p className="text-xs text-muted-foreground text-center">
+												⚡ Sản phẩm có tự động gia hạn 10
+												phút nếu có lượt đấu giá mới trước
+												khi kết thúc 5 phút
+											</p>
+										)}
+									</CardContent>
+								</Card>
+							)}
 						</div>
 					</div>
 
@@ -970,8 +987,8 @@ const ProductDetail = () => {
 										))
 									)}
 
-									{/* Ask question form - only for non-sellers */}
-									{!isProductSeller && (
+									{/* Ask question form - only for non-sellers and non-admins */}
+									{!isProductSeller && !isAdmin && (
 										<>
 											<Separator />
 											<form
@@ -1148,6 +1165,7 @@ const ProductDetail = () => {
 										category={
 											product.categoryName || 'Khác'
 										}
+										hideWatchlist={isAdmin}
 									/>
 								))}
 							</div>

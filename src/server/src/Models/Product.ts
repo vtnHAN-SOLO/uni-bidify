@@ -30,6 +30,7 @@ const ProductSchema = new Schema(
 		bidCount: { type: Number, default: 0 },
 		allowUnratedBidders: { type: Boolean, default: false }, // Allow unrated bidders AND bidders with < 80% rating
 		rejectedBidders: [{ type: Schema.Types.ObjectId, ref: 'User' }], // Blocked bidders list
+		auctionEndProcessed: { type: Boolean, default: false }, // Flag to track if end-of-auction emails were sent
 	},
 	{ timestamps: true }
 )

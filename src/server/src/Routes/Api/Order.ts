@@ -6,6 +6,7 @@ import Review from '../../Models/Review.js'
 import Auth from '../../Middleware/Auth.js'
 import { ROLES, TRANSACTION_STEP, RATING } from '../../Data/Constants/index.js'
 import { check as checkRole } from '../../Middleware/Role.js'
+import { checkSellerAccess } from '../../Middleware/SellerPermission.js'
 
 const router = express.Router()
 
@@ -256,7 +257,7 @@ router.put('/:orderId/payment', Auth, async (req: Request, res: Response) => {
 router.put(
 	'/:orderId/shipping',
 	Auth,
-	checkRole(ROLES.Seller, ROLES.Admin),
+	checkSellerAccess(), // Allow expired sellers to confirm shipping for their orders
 	async (req: Request, res: Response) => {
 		try {
 			const { orderId } = req.params

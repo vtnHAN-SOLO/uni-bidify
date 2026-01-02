@@ -51,8 +51,12 @@ export interface GoogleAuthDto {
 
 export interface AuthResponse {
 	success: boolean
-	token: string // Backend trả "token", không phải "accessToken"
-	user: User
+	token?: string // Backend trả "token", không phải "accessToken"
+	user?: User
+	// For unverified users - redirect to OTP verification
+	needsVerification?: boolean
+	email?: string
+	message?: string
 }
 
 export interface User {
@@ -71,6 +75,8 @@ export interface User {
 	upgradeRequest?: UpgradeRequest
 	createdAt: Date | string
 	updatedAt: Date | string
+	sellerExpiryDate?: Date | string // Seller permission expiry date (7 days after approval)
+	upgradeRequestStatus?: string
 }
 
 export interface UserRating {

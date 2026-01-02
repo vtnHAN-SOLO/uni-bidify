@@ -39,6 +39,8 @@ const UserSchema = new Schema(
 			default: UPGRADE_REQUEST_STATUS.None,
 			enum: Object.values(UPGRADE_REQUEST_STATUS),
 		},
+		// Seller role expiry date (7 days after approval)
+		sellerExpiryDate: { type: Date },
 	},
 	{ timestamps: true }
 )

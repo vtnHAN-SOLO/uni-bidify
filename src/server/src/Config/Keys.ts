@@ -12,10 +12,13 @@ export default {
 		secret: process.env.JWT_SECRET, // JWT secret key
 		tokenLife: process.env.JWT_LIFE, // JWT token life
 	},
-	mailgun: {
-		key: process.env.MAILGUN_API_KEY, // Mailgun API key
-		domain: process.env.MAILGUN_DOMAIN, // Mailgun domain
-		sender: process.env.MAILGUN_SENDER, // Mailgun sender email
+	smtp: {
+		host: process.env.SMTP_HOST || 'smtp.gmail.com', // SMTP host
+		port: parseInt(process.env.SMTP_PORT || '587'), // SMTP port
+		secure: process.env.SMTP_SECURE === 'true', // true for 465, false for other ports
+		user: process.env.SMTP_USER, // SMTP user (email)
+		pass: process.env.SMTP_PASS, // SMTP password (app password)
+		from: process.env.SMTP_FROM || 'AuctionHub <noreply@auctionhub.com>', // Sender name and email
 	},
 	aws: {
 		accessKeyId: process.env.AWS_ACCESS_KEY_ID, // AWS access key ID

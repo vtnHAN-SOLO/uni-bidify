@@ -11,6 +11,8 @@ import routes from './Routes/index.js'
 import Keys from './Config/Keys.js'
 import setupDB from './Utility/Database.js'
 import initializePassport from './Config/Passport.js'
+import AuctionScheduler from './Services/AuctionScheduler/index.js'
+import SellerExpiryScheduler from './Services/SellerExpiryScheduler/index.js'
 
 // //Static folder ảnh tạm (TS) trong src/index.ts (server entry):
 // import path from 'path'
@@ -68,4 +70,10 @@ app.listen(port, '0.0.0.0', () => {
 			`Server is running on port ${port}! Visit http://${Keys.app.clientURL}:${port}/ in your browser.`
 		)}`
 	)
+
+	// Start the auction scheduler after server is running
+	AuctionScheduler.start()
+
+	// Start the seller expiry scheduler after server is running
+	SellerExpiryScheduler.start()
 })

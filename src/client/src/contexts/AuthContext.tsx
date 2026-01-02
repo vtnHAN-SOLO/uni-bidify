@@ -28,15 +28,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 interface AuthProviderProps {
 	children: ReactNode
 }
-const getErrorMessage = (error: unknown): string => {
-	if (error && typeof error === 'object' && 'response' in error) {
-		const responseError = error as {
-			response?: { data?: { message?: string } }
-		}
-		return responseError.response?.data?.message || 'Đã có lỗi xảy ra'
-	}
-	return 'Đã có lỗi xảy ra'
-}
+
 export const AuthProvider = ({ children }: AuthProviderProps) => {
 	const [user, setUser] = useState<User | null>(null)
 	const [isLoading, setIsLoading] = useState(true)
@@ -70,7 +62,18 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 		try {
 			const response = await authApi.login(data)
 			console.log('✅ Login response:', response)
-			if (response.success) {
+
+			// Check if user needs to verify OTP
+			if (response.needsVerification) {
+				toast.info(response.message || 'Vui lòng xác thực tài khoản')
+				// Redirect to OTP verification page with email
+				navigate('/verify-otp', {
+					state: { email: response.email },
+				})
+				return
+			}
+
+			if (response.success && response.token && response.user) {
 				let token = response.token
 				console.log('📦 Raw token from backend:', token)
 				if (token.startsWith('Bearer ')) {
@@ -78,7 +81,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 				}
 
 				setAccessToken(token)
-				setUser(response.user) // Sửa: response.user thay vì response.data.user
+				setUser(response.user)
 				console.log(response.user)
 				toast.success('Đăng nhập thành công!')
 				switch (response.user.role) {
@@ -96,7 +99,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 				}
 			}
 		} catch (error: unknown) {
-			toast.error(getErrorMessage(error))
+			// Error đã được xử lý bởi error interceptor, không cần toast ở đây
 			throw error
 		}
 	}
@@ -131,7 +134,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
 			throw new Error('Registration failed')
 		} catch (error: unknown) {
-			toast.error(getErrorMessage(error))
+			// Error đã được xử lý bởi error interceptor, không cần toast ở đây
 			throw error
 		}
 	}
@@ -140,19 +143,19 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 		try {
 			const response = await authApi.verifyOTP(data.email, data.otpCode)
 
-			if (response.success) {
+			if (response.success && response.token && response.user) {
 				let token = response.token
 				if (token.startsWith('Bearer ')) {
 					token = token.replace('Bearer ', '')
 				}
 
 				setAccessToken(token)
-				setUser(response.user) // Sửa: response.user
+				setUser(response.user)
 				toast.success('Xác thực OTP thành công!')
 				navigate('/')
 			}
 		} catch (error: unknown) {
-			toast.error(getErrorMessage(error))
+			// Error đã được xử lý bởi error interceptor, không cần toast ở đây
 			throw error
 		}
 	}
@@ -165,7 +168,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 				toast.success('OTP mới đã được gửi đến email của bạn')
 			}
 		} catch (error: unknown) {
-			toast.error(getErrorMessage(error))
+			// Error đã được xử lý bởi error interceptor, không cần toast ở đây
 			throw error
 		}
 	}

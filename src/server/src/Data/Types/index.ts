@@ -15,11 +15,13 @@ export type Name = {
  *
  * @type Email
  * @property {string} subject - The subject of the email
- * @property {string} text - The body text of the email
+ * @property {string} text - The body text of the email (plain text fallback)
+ * @property {string} html - The HTML body of the email (optional)
  */
 export type Email = {
 	subject: string
 	text: string
+	html?: string
 }
 
 /**

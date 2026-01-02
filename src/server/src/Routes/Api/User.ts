@@ -5,6 +5,7 @@ import Product from '../../Models/Product.js'
 import Bid from '../../Models/Bid.js'
 import Review from '../../Models/Review.js'
 import bcrypt from 'bcryptjs'
+import { ROLES, UPGRADE_REQUEST_STATUS } from '../../Data/Constants/index.js'
 
 const router = express.Router()
 
@@ -19,7 +20,7 @@ router.get('/profile', Auth, async (req: Request, res: Response) => {
 		const user = await User.findById(userId).select('-password').lean()
 
 		if (!user) {
-			return res.status(404).json({ error: 'User not found.' })
+			return res.status(404).json({ error: 'Không tìm thấy người dùng.' })
 		}
 
 		// Calculate rating percentage
@@ -53,7 +54,7 @@ router.get('/profile', Auth, async (req: Request, res: Response) => {
 	} catch (error: any) {
 		console.error('Get profile error:', error)
 		return res.status(500).json({
-			error: error.message || 'Failed to get profile.',
+			error: error.message || 'Không thể lấy thông tin tài khoản.',
 		})
 	}
 })
@@ -71,7 +72,7 @@ router.put('/profile', Auth, async (req: Request, res: Response) => {
 		const user = await User.findById(userId)
 
 		if (!user) {
-			return res.status(404).json({ error: 'User not found.' })
+			return res.status(404).json({ error: 'Không tìm thấy người dùng.' })
 		}
 
 		// ✅ Update basic information
@@ -83,7 +84,7 @@ router.put('/profile', Auth, async (req: Request, res: Response) => {
 		if (newPassword) {
 			if (!currentPassword) {
 				return res.status(400).json({
-					error: 'Current password is required to change password.',
+					error: 'Vui lòng nhập mật khẩu hiện tại để thay đổi mật khẩu.',
 				})
 			}
 
@@ -94,7 +95,7 @@ router.put('/profile', Auth, async (req: Request, res: Response) => {
 			)
 			if (!isPasswordMatch) {
 				return res.status(400).json({
-					error: 'Current password is incorrect.',
+					error: 'Mật khẩu hiện tại không đúng.',
 				})
 			}
 
@@ -107,7 +108,7 @@ router.put('/profile', Auth, async (req: Request, res: Response) => {
 
 		return res.json({
 			success: true,
-			message: 'Profile updated successfully.',
+			message: 'Cập nhật thông tin thành công.',
 			user: {
 				id: user._id.toString(),
 				email: user.email,
@@ -121,7 +122,7 @@ router.put('/profile', Auth, async (req: Request, res: Response) => {
 	} catch (error: any) {
 		console.error('Update profile error:', error)
 		return res.status(500).json({
-			error: error.message || 'Failed to update profile.',
+			error: error.message || 'Không thể cập nhật thông tin.',
 		})
 	}
 })
@@ -159,7 +160,7 @@ router.get('/watchlist', Auth, async (req: Request, res: Response) => {
 			.lean()
 
 		if (!user) {
-			return res.status(404).json({ error: 'User not found.' })
+			return res.status(404).json({ error: 'Không tìm thấy người dùng.' })
 		}
 
 		const mapProductToDTO = (product: any) => ({
@@ -196,7 +197,7 @@ router.get('/watchlist', Auth, async (req: Request, res: Response) => {
 	} catch (error: any) {
 		console.error('Get watchlist error:', error)
 		return res.status(500).json({
-			error: error.message || 'Failed to get watchlist.',
+			error: error.message || 'Không thể lấy danh sách yêu thích.',
 		})
 	}
 })
@@ -211,17 +212,25 @@ router.post(
 	async (req: Request, res: Response) => {
 		try {
 			const userId = (req.user as any)._id
+			const userRole = (req.user as any).role
 			const { productId } = req.params
+
+			// Admin cannot use watchlist - view only
+			if (userRole === ROLES.Admin) {
+				return res.status(403).json({
+					error: 'Admin không được phép sử dụng danh sách yêu thích.',
+				})
+			}
 
 			// Check if product exists
 			const product = await Product.findById(productId)
 			if (!product) {
-				return res.status(404).json({ error: 'Product not found.' })
+				return res.status(404).json({ error: 'Sản phẩm không tồn tại.' })
 			}
 
 			const user = await User.findById(userId)
 			if (!user) {
-				return res.status(404).json({ error: 'User not found.' })
+				return res.status(404).json({ error: 'Không tìm thấy người dùng.' })
 			}
 
 			// Check if already in watchlist
@@ -238,7 +247,7 @@ router.post(
 
 				return res.json({
 					success: true,
-					message: 'Product removed from watchlist.',
+					message: 'Đã xóa sản phẩm khỏi danh sách yêu thích.',
 					isAdded: false,
 					watchlistCount: user.watchlist.length,
 				})
@@ -249,7 +258,7 @@ router.post(
 
 				return res.json({
 					success: true,
-					message: 'Product added to watchlist.',
+					message: 'Đã thêm sản phẩm vào danh sách yêu thích.',
 					isAdded: true,
 					watchlistCount: user.watchlist.length,
 				})
@@ -257,7 +266,7 @@ router.post(
 		} catch (error: any) {
 			console.error('Update watchlist error:', error)
 			return res.status(500).json({
-				error: error.message || 'Failed to update watchlist.',
+				error: error.message || 'Không thể cập nhật danh sách yêu thích.',
 			})
 		}
 	}
@@ -363,7 +372,7 @@ router.get('/bidding-history', Auth, async (req: Request, res: Response) => {
 	} catch (error: any) {
 		console.error('Get bidding history error:', error)
 		return res.status(500).json({
-			error: error.message || 'Failed to get bidding history.',
+			error: error.message || 'Không thể lấy lịch sử đấu giá.',
 		})
 	}
 })
@@ -425,7 +434,51 @@ router.get('/reviews', Auth, async (req: Request, res: Response) => {
 	} catch (error: any) {
 		console.error('Get reviews error:', error)
 		return res.status(500).json({
-			error: error.message || 'Failed to get reviews.',
+			error: error.message || 'Không thể lấy danh sách đánh giá.',
+		})
+	}
+})
+
+/**
+ * POST /api/users/upgrade-request
+ * Request upgrade from Bidder to Seller
+ */
+router.post('/upgrade-request', Auth, async (req: Request, res: Response) => {
+	try {
+		const userId = (req.user as any)._id
+
+		const user = await User.findById(userId)
+		if (!user) {
+			return res.status(404).json({ error: 'Không tìm thấy người dùng.' })
+		}
+
+		// Check if user is already a Seller or Admin
+		if (user.role === ROLES.Seller || user.role === ROLES.Admin) {
+			return res.status(400).json({
+				error: 'Bạn đã là Seller hoặc Admin, không cần nâng cấp.',
+			})
+		}
+
+		// Check if user already has a pending request
+		if (user.upgradeRequestStatus === UPGRADE_REQUEST_STATUS.Pending) {
+			return res.status(400).json({
+				error: 'Bạn đã có yêu cầu nâng cấp đang chờ xử lý.',
+			})
+		}
+
+		// Update status to Pending (allow re-request if previously rejected)
+		user.upgradeRequestStatus = UPGRADE_REQUEST_STATUS.Pending
+		await user.save()
+
+		return res.json({
+			success: true,
+			message: 'Yêu cầu nâng cấp đã được gửi. Vui lòng chờ admin duyệt.',
+			upgradeRequestStatus: user.upgradeRequestStatus,
+		})
+	} catch (error: any) {
+		console.error('Upgrade request error:', error)
+		return res.status(500).json({
+			error: error.message || 'Không thể gửi yêu cầu nâng cấp.',
 		})
 	}
 })

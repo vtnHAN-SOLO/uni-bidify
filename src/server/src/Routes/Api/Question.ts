@@ -1,9 +1,13 @@
 import express, { Request, Response } from 'express'
 import Question from '../../Models/Question.js'
 import Product from '../../Models/Product.js'
+import User from '../../Models/User.js'
+import Bid from '../../Models/Bid.js'
 import Auth from '../../Middleware/Auth.js'
 import { ROLES } from '../../Data/Constants/index.js'
 import { check as checkRole } from '../../Middleware/Role.js'
+import { checkSellerAccess } from '../../Middleware/SellerPermission.js'
+import MailService from '../../Services/MailService/index.js'
 
 const router = express.Router()
 
@@ -77,6 +81,14 @@ router.post('/', Auth, async (req: Request, res: Response) => {
 			})
 		}
 
+		// Admin cannot ask questions - view only
+		if (user.role === ROLES.Admin) {
+			return res.status(403).json({
+				success: false,
+				error: 'Admin không được phép đặt câu hỏi. Chức năng này chỉ dành cho người mua.',
+			})
+		}
+
 		// Check if user is the seller (sellers can't ask questions on their own products)
 		if (product.seller.toString() === user._id.toString()) {
 			return res.status(400).json({
@@ -97,7 +109,22 @@ router.post('/', Auth, async (req: Request, res: Response) => {
 			.populate('asker', 'firstName lastName')
 			.lean()
 
-		// TODO: Send email notification to seller
+		// ==================== SEND EMAIL TO SELLER ====================
+		try {
+			const seller = await User.findById(product.seller).lean()
+			if (seller) {
+				MailService.sendMail(seller.email, 'question-asked', {
+					productName: product.name,
+					sellerName: `${seller.firstName} ${seller.lastName}`,
+					buyerName: `${user.firstName} ${user.lastName}`,
+					question: question.trim(),
+				}).catch((err) =>
+					console.error('❌ Failed to send question-asked email:', err)
+				)
+			}
+		} catch (emailError) {
+			console.error('❌ Error sending question email:', emailError)
+		}
 
 		return res.status(201).json({
 			success: true,
@@ -127,7 +154,7 @@ router.post('/', Auth, async (req: Request, res: Response) => {
 router.put(
 	'/:id/answer',
 	Auth,
-	checkRole(ROLES.Seller, ROLES.Admin),
+	checkSellerAccess(), // Allow expired sellers to answer questions on their active products
 	async (req: Request, res: Response) => {
 		try {
 			const { id } = req.params
@@ -183,10 +210,48 @@ router.put(
 				},
 				{ new: true }
 			)
-				.populate('asker', 'firstName lastName')
+				.populate('asker', 'firstName lastName email')
 				.lean()
 
-			// TODO: Send email notification to asker and all bidders
+			// ==================== SEND EMAIL TO ASKER AND BIDDERS ====================
+			try {
+				const sellerName = `${user.firstName} ${user.lastName}`
+
+				// 1. Get all unique bidders for this product
+				const productBids = await Bid.find({ product: product._id })
+					.distinct('bidder')
+					.lean()
+
+				// 2. Get all unique askers for this product
+				const productQuestions = await Question.find({ product: product._id })
+					.distinct('asker')
+					.lean()
+
+				// 3. Combine and get unique user IDs (bidders + askers)
+				const allUserIds = [...new Set([...productBids.map(String), ...productQuestions.map(String)])]
+
+				// 4. Get user info for all
+				const users = await User.find({ _id: { $in: allUserIds } })
+					.select('firstName lastName email')
+					.lean()
+
+				// 5. Send email to each user
+				for (const recipient of users) {
+					MailService.sendMail(recipient.email, 'question-answered', {
+						productName: product.name,
+						recipientName: `${recipient.firstName} ${recipient.lastName}`,
+						sellerName,
+						question: question.question,
+						answer: answer.trim(),
+					}).catch((err) =>
+						console.error(`❌ Failed to send question-answered email to ${recipient.email}:`, err)
+					)
+				}
+
+				console.log(`📧 Sent question-answered emails to ${users.length} users`)
+			} catch (emailError) {
+				console.error('❌ Error sending question-answered emails:', emailError)
+			}
 
 			return res.json({
 				success: true,
@@ -273,7 +338,7 @@ router.get('/product/:productId', async (req: Request, res: Response) => {
 router.get(
 	'/seller',
 	Auth,
-	checkRole(ROLES.Seller, ROLES.Admin),
+	checkSellerAccess(), // Allow expired sellers to view questions on their products
 	async (req: Request, res: Response) => {
 		try {
 			const user = req.user as AuthUser

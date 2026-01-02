@@ -2,9 +2,12 @@ import express, { Request, Response } from 'express'
 import Bid from '../../Models/Bid.js'
 import Product from '../../Models/Product.js'
 import User from '../../Models/User.js'
+import Settings from '../../Models/Settings.js'
 import Auth from '../../Middleware/Auth.js'
 import { ROLES } from '../../Data/Constants/index.js'
 import { check as checkRole } from '../../Middleware/Role.js'
+import { checkSellerAccess } from '../../Middleware/SellerPermission.js'
+import MailService from '../../Services/MailService/index.js'
 
 const router = express.Router()
 
@@ -108,24 +111,42 @@ const canBidderParticipate = (
 }
 
 /**
+ * Get auction settings from database (with default fallback)
+ */
+const getAuctionSettings = async (): Promise<{
+	triggerMinutes: number
+	extensionMinutes: number
+}> => {
+	const settings = await Settings.findOne().lean()
+	return {
+		triggerMinutes: settings?.triggerMinutes ?? 5,
+		extensionMinutes: settings?.extensionMinutes ?? 10,
+	}
+}
+
+/**
  * Check and apply auto-extension if bid is placed near end time
+ * Uses global auction settings from database
  */
 const checkAutoExtension = async (product: ProductDoc): Promise<boolean> => {
 	if (!product.autoExtend) return false
+
+	// Get settings from database
+	const settings = await getAuctionSettings()
 
 	const now = new Date()
 	const endTime = new Date(product.endTime)
 	const minutesUntilEnd = (endTime.getTime() - now.getTime()) / (1000 * 60)
 
-	// If within autoExtendMinutes before end, extend by extendDurationMinutes
-	if (minutesUntilEnd > 0 && minutesUntilEnd <= product.autoExtendMinutes) {
+	// If within triggerMinutes before end, extend by extensionMinutes
+	if (minutesUntilEnd > 0 && minutesUntilEnd <= settings.triggerMinutes) {
 		const newEndTime = new Date(
-			endTime.getTime() + product.extendDurationMinutes * 60 * 1000
+			endTime.getTime() + settings.extensionMinutes * 60 * 1000
 		)
 		product.endTime = newEndTime
 		await product.save()
 		console.log(
-			`⏰ Auto-extended auction ${product._id} to ${newEndTime.toISOString()}`
+			`⏰ Auto-extended auction ${product._id} by ${settings.extensionMinutes} minutes to ${newEndTime.toISOString()}`
 		)
 		return true
 	}
@@ -323,6 +344,14 @@ router.post('/', Auth, async (req: Request, res: Response) => {
 			})
 		}
 
+		// Admin cannot participate in auctions - view only
+		if (user.role === ROLES.Admin) {
+			return res.status(403).json({
+				success: false,
+				error: 'Admin không được phép tham gia đấu giá. Chức năng này chỉ dành cho Bidder và Seller.',
+			})
+		}
+
 		// Check bidder eligibility based on rating settings
 		const eligibility = canBidderParticipate(
 			bidder.positiveReviews || 0,
@@ -411,6 +440,79 @@ router.post('/', Auth, async (req: Request, res: Response) => {
 				: `Bạn đã đặt giá thành công với ${finalPrice.toLocaleString('vi-VN')} VNĐ!`
 		} else {
 			message = `Giá của bạn đã bị vượt qua bởi hệ thống tự động. Giá hiện tại: ${finalPrice.toLocaleString('vi-VN')} VNĐ.`
+		}
+
+		// ==================== SEND EMAIL NOTIFICATIONS ====================
+		try {
+			// Get seller info
+			const seller = await User.findById(product.seller).lean()
+			const bidderInfo = await User.findById(user._id).lean()
+
+			if (seller && bidderInfo) {
+				const emailData = {
+					productName: product.name,
+					bidAmount: finalPrice,
+					endTime: product.endTime,
+					bidderName: `${bidderInfo.firstName} ${bidderInfo.lastName}`,
+				}
+
+				// 1. Send email to bidder (the one who just placed bid)
+				MailService.sendMail(bidderInfo.email, 'bid-success-bidder', emailData).catch((err) =>
+					console.error('❌ Failed to send bid-success email to bidder:', err)
+				)
+
+				// 2. Send email to seller
+				MailService.sendMail(seller.email, 'bid-success-seller', {
+					...emailData,
+					sellerName: `${seller.firstName} ${seller.lastName}`,
+				}).catch((err) =>
+					console.error('❌ Failed to send bid-success email to seller:', err)
+				)
+
+				// 3. If there was a previous highest bidder who got outbid, notify them
+				if (autoBidOccurred && isWinner) {
+					// New bidder won, previous holder got outbid
+					const previousBidderId = product.highestBidder?.toString()
+					if (previousBidderId && previousBidderId !== user._id.toString()) {
+						const previousBidder = await User.findById(previousBidderId).lean()
+						if (previousBidder) {
+							// Get previous bidder's max bid
+							const previousBid = await Bid.findOne({
+								product: productId,
+								bidder: previousBidderId,
+							})
+								.sort({ maxPrice: -1 })
+								.lean()
+
+							MailService.sendMail(previousBidder.email, 'bid-outbid', {
+								productName: product.name,
+								previousBid: previousBid?.maxPrice || product.currentPrice,
+								newBid: finalPrice,
+								outbidderName: `${bidderInfo.firstName} ${bidderInfo.lastName}`,
+								previousBidderName: `${previousBidder.firstName} ${previousBidder.lastName}`,
+								endTime: product.endTime,
+							}).catch((err) =>
+								console.error('❌ Failed to send outbid email:', err)
+							)
+						}
+					}
+				} else if (!isWinner) {
+					// Current holder won via auto-bid, new bidder got outbid
+					MailService.sendMail(bidderInfo.email, 'bid-outbid', {
+						productName: product.name,
+						previousBid: maxPrice,
+						newBid: finalPrice,
+						outbidderName: 'Hệ thống tự động',
+						previousBidderName: `${bidderInfo.firstName} ${bidderInfo.lastName}`,
+						endTime: product.endTime,
+					}).catch((err) =>
+						console.error('❌ Failed to send outbid email to new bidder:', err)
+					)
+				}
+			}
+		} catch (emailError) {
+			console.error('❌ Error sending bid emails:', emailError)
+			// Don't fail the bid if email fails
 		}
 
 		return res.status(201).json({
@@ -689,7 +791,7 @@ router.get('/user/won', Auth, async (req: Request, res: Response) => {
 router.delete(
 	'/:bidId',
 	Auth,
-	checkRole(ROLES.Seller, ROLES.Admin),
+	checkSellerAccess(), // Allow expired sellers to reject bidders on their active products
 	async (req: Request, res: Response) => {
 		try {
 			const { bidId } = req.params
@@ -769,10 +871,33 @@ router.delete(
 			await product.save()
 
 			// Delete all bids from rejected bidder for this product
+			const deletedBids = await Bid.find({
+				product: product._id,
+				bidder: rejectedBidderId,
+			}).lean()
+
 			await Bid.deleteMany({
 				product: product._id,
 				bidder: rejectedBidderId,
 			})
+
+			// ==================== SEND EMAIL TO REJECTED BIDDER ====================
+			try {
+				const rejectedUser = await User.findById(rejectedBidderId).lean()
+				if (rejectedUser && deletedBids.length > 0) {
+					const highestBid = Math.max(...deletedBids.map((b: any) => b.price))
+					MailService.sendMail(rejectedUser.email, 'bid-rejected', {
+						productName: product.name,
+						bidAmount: highestBid,
+						bidderName: `${rejectedUser.firstName} ${rejectedUser.lastName}`,
+						reason: 'Người bán đã từ chối lượt đấu giá của bạn.',
+					}).catch((err) =>
+						console.error('❌ Failed to send bid-rejected email:', err)
+					)
+				}
+			} catch (emailError) {
+				console.error('❌ Error sending rejection email:', emailError)
+			}
 
 			return res.json({
 				success: true,
@@ -931,6 +1056,7 @@ router.post(
 				})
 			}
 
+			// Check bidder eligibility based on rating settings
 			const eligibility = canBidderParticipate(
 				bidder.positiveReviews || 0,
 				bidder.negativeReviews || 0,

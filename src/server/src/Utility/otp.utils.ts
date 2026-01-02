@@ -27,19 +27,19 @@ export function verifyOTP(
 	if (!storedOtp || !expiresAt) {
 		return {
 			valid: false,
-			reason: 'No OTP found. Please request a new one.',
+			reason: 'Không tìm thấy mã OTP. Vui lòng yêu cầu mã mới.',
 		}
 	}
 
 	if (new Date() > expiresAt) {
 		return {
 			valid: false,
-			reason: 'OTP has expired. Please request a new one.',
+			reason: 'Mã OTP đã hết hạn. Vui lòng yêu cầu mã mới.',
 		}
 	}
 
 	if (storedOtp !== inputOtp) {
-		return { valid: false, reason: 'Invalid OTP. Please try again.' }
+		return { valid: false, reason: 'Mã OTP không đúng. Vui lòng thử lại.' }
 	}
 
 	return { valid: true }

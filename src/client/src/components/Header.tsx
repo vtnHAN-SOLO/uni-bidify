@@ -7,7 +7,6 @@ import {
 	ChevronDown,
 	ChevronRight,
 	LogOut,
-	Bell,
 	LayoutGrid,
 	Package,
 	Gavel,
@@ -198,22 +197,6 @@ export const Header = () => {
 					<div className="flex items-center gap-2">
 						{isAuthenticated ? (
 							<>
-								{/* Notifications */}
-								<Button
-									variant="ghost"
-									size="icon"
-									className="h-9 w-9 relative"
-								>
-									<Bell className="h-4 w-4" />
-									<Badge
-										variant="destructive"
-										className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
-									>
-										3
-									</Badge>
-									<span className="sr-only">Thông báo</span>
-								</Button>
-
 								{/* Watchlist */}
 								<Link to="/watch-list">
 									<Button

@@ -30,6 +30,7 @@ export const API_ENDPOINTS = {
 		APPEND_DESCRIPTION: (id: string) => `/products/${id}/description`,
 		DELETE: (id: string) => `/products/${id}`,
 		SELLER_PRODUCTS: '/products/seller/my-products',
+		AUCTION_SETTINGS: '/products/auction-settings',
 	},
 
 	// Categories

@@ -18,6 +18,7 @@ interface ProductCardProps {
 	endTime: Date
 	isNew?: boolean
 	category: string
+	hideWatchlist?: boolean // Hide watchlist button for Admin
 }
 
 export const ProductCard = ({
@@ -31,6 +32,7 @@ export const ProductCard = ({
 	endTime,
 	isNew,
 	category,
+	hideWatchlist = false,
 }: ProductCardProps) => {
 	const timeLeft = formatDistanceToNow(endTime, {
 		addSuffix: true,
@@ -38,7 +40,7 @@ export const ProductCard = ({
 	})
 	const isEndingSoon =
 		endTime.getTime() - Date.now() < 3 * 24 * 60 * 60 * 1000 // 3 days
-
+	const isEnded = new Date(endTime) < new Date()
 	// ✅ USE WATCHLIST CONTEXT
 	const { isInWatchlist, toggleWatchlist } = useWatchlist()
 	const isFavorite = isInWatchlist(id)
@@ -53,35 +55,44 @@ export const ProductCard = ({
 						className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
 					/>
 
-					{/* ✅ FAVORITE BUTTON */}
-					<Button
-						variant="ghost"
-						size="icon"
-						className="absolute right-2 top-2 h-10 w-10 rounded-full 
-                                   bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm 
+					{/* ✅ FAVORITE BUTTON - Hide for Admin */}
+					{!hideWatchlist && (
+						<Button
+							variant="ghost"
+							size="icon"
+							className="absolute right-2 top-2 h-10 w-10 rounded-full
+                                   bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm
                                    hover:bg-white dark:hover:bg-gray-800
                                    transition-all hover:scale-110 active:scale-95
                                    shadow-md"
-						onClick={(e) => {
-							e.preventDefault()
-							toggleWatchlist(id) // ✅ USE CONTEXT
-						}}
-					>
-						<Heart
-							className={`h-5 w-5 transition-all ${
-								isFavorite
-									? 'fill-red-500 text-red-500'
-									: 'fill-none text-gray-700 dark:text-gray-400 hover:text-red-500'
-							}`}
-						/>
-					</Button>
+							onClick={(e) => {
+								e.preventDefault()
+								toggleWatchlist(id) // ✅ USE CONTEXT
+							}}
+						>
+							<Heart
+								className={`h-5 w-5 transition-all ${
+									isFavorite
+										? 'fill-red-500 text-red-500'
+										: 'fill-none text-gray-700 dark:text-gray-400 hover:text-red-500'
+								}`}
+							/>
+						</Button>
+					)}
 
 					{isNew && (
 						<Badge className="absolute left-2 top-2 bg-accent text-accent-foreground animate-pulse-slow">
 							MỚI
 						</Badge>
 					)}
-					{isEndingSoon && (
+
+					{/* Badge Đã kết thúc - góc trái dưới cùng */}
+					{isEnded && (
+						<Badge className="absolute left-2 bottom-2 text-destructive-foreground bg-gray-600">
+							⏱️ Đã kết thúc
+						</Badge>
+					)}
+					{!isEnded && isEndingSoon && (
 						<Badge className="absolute left-2 bottom-2 bg-destructive text-destructive-foreground">
 							<Clock className="mr-1 h-3 w-3" />
 							Sắp kết thúc

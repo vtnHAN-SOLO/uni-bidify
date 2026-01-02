@@ -113,7 +113,7 @@ export default function Auth() {
 			// setShowOtp(true)
 		} catch (error) {
 			console.error('Register error:', error)
-			toast.error(error.response?.data?.error || 'Đăng ký thất bại')
+			// Toast đã được gọi trong AuthContext.register, không cần gọi lại
 		} finally {
 			setRegisterLoading(false)
 		}

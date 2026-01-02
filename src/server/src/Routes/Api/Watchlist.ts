@@ -35,7 +35,7 @@ router.get('/', Auth, async (req: Request, res: Response) => {
 			.lean()
 
 		if (!user) {
-			return res.status(404).json({ error: 'User not found.' })
+			return res.status(404).json({ error: 'Không tìm thấy người dùng.' })
 		}
 
 		// ✅ MAP WITH CATEGORY AND BIDDER INFO
@@ -66,7 +66,7 @@ router.get('/', Auth, async (req: Request, res: Response) => {
 	} catch (error: any) {
 		console.error('Get watchlist error:', error)
 		return res.status(500).json({
-			error: error.message || 'Failed to get watchlist.',
+			error: error.message || 'Không thể lấy danh sách yêu thích.',
 		})
 	}
 })
@@ -87,19 +87,19 @@ router.post('/:productId', Auth, async (req: Request, res: Response) => {
 		// Check if product exists
 		const product = await Product.findById(productId)
 		if (!product) {
-			return res.status(404).json({ error: 'Product not found.' })
+			return res.status(404).json({ error: 'Sản phẩm không tồn tại.' })
 		}
 
 		// Add to watchlist if not already there
 		const user = await User.findById(userId)
 		if (!user) {
-			return res.status(404).json({ error: 'User not found.' })
+			return res.status(404).json({ error: 'Không tìm thấy người dùng.' })
 		}
 
 		// ✅ IMPROVED CHECK: Use .some() instead of .includes()
 		if (user.watchlist.some((id) => id.toString() === productId)) {
 			return res.status(400).json({
-				error: 'Product already in watchlist.',
+				error: 'Sản phẩm đã có trong danh sách yêu thích.',
 			})
 		}
 
@@ -112,13 +112,13 @@ router.post('/:productId', Auth, async (req: Request, res: Response) => {
 
 		return res.json({
 			success: true,
-			message: 'Product added to watchlist.',
+			message: 'Đã thêm sản phẩm vào danh sách yêu thích.',
 			watchlistCount: user.watchlist.length,
 		})
 	} catch (error: any) {
 		console.error('[Watchlist] Add error:', error)
 		return res.status(500).json({
-			error: error.message || 'Failed to add to watchlist.',
+			error: error.message || 'Không thể thêm vào danh sách yêu thích.',
 		})
 	}
 })
@@ -138,7 +138,7 @@ router.delete('/:productId', Auth, async (req: Request, res: Response) => {
 
 		const user = await User.findById(userId)
 		if (!user) {
-			return res.status(404).json({ error: 'User not found.' })
+			return res.status(404).json({ error: 'Không tìm thấy người dùng.' })
 		}
 
 		// Remove from watchlist
@@ -153,13 +153,13 @@ router.delete('/:productId', Auth, async (req: Request, res: Response) => {
 
 		return res.json({
 			success: true,
-			message: 'Product removed from watchlist.',
+			message: 'Đã xóa sản phẩm khỏi danh sách yêu thích.',
 			watchlistCount: user.watchlist.length,
 		})
 	} catch (error: any) {
 		console.error('[Watchlist] Remove error:', error)
 		return res.status(500).json({
-			error: error.message || 'Failed to remove from watchlist.',
+			error: error.message || 'Không thể xóa khỏi danh sách yêu thích.',
 		})
 	}
 })
@@ -175,7 +175,7 @@ router.get('/check/:productId', Auth, async (req: Request, res: Response) => {
 
 		const user = await User.findById(userId).lean()
 		if (!user) {
-			return res.status(404).json({ error: 'User not found.' })
+			return res.status(404).json({ error: 'Không tìm thấy người dùng.' })
 		}
 
 		const isInWatchlist = user.watchlist.some(
@@ -189,7 +189,7 @@ router.get('/check/:productId', Auth, async (req: Request, res: Response) => {
 	} catch (error: any) {
 		console.error('[Watchlist] Check error:', error)
 		return res.status(500).json({
-			error: error.message || 'Failed to check watchlist.',
+			error: error.message || 'Không thể kiểm tra danh sách yêu thích.',
 		})
 	}
 })
