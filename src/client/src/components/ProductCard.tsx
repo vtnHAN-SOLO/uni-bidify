@@ -86,18 +86,17 @@ export const ProductCard = ({
 						</Badge>
 					)}
 
-					{/* Badge Đã kết thúc - góc trái dưới cùng */}
-					{isEnded && (
-						<Badge className="absolute left-2 bottom-2 text-destructive-foreground bg-gray-600">
+					{/* Status Badge - Only show one at a time */}
+					{isEnded ? (
+						<Badge className="absolute left-2 bottom-2 text-white bg-gray-600">
 							⏱️ Đã kết thúc
 						</Badge>
-					)}
-					{!isEnded && isEndingSoon && (
+					) : isEndingSoon ? (
 						<Badge className="absolute left-2 bottom-2 bg-destructive text-destructive-foreground">
 							<Clock className="mr-1 h-3 w-3" />
 							Sắp kết thúc
 						</Badge>
-					)}
+					) : null}
 				</div>
 
 				<CardContent className="p-4">

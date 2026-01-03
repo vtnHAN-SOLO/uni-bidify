@@ -4,16 +4,39 @@ import { Button } from '@/components/ui/input/button'
 import { Card, CardContent } from '@/components/ui/data-display/card'
 import { Badge } from '@/components/ui/data-display/badge'
 import { Plus, Edit, Trash2, Eye, Loader2 } from 'lucide-react'
-import { useSellerProducts, useDeleteProduct } from '@/services/utils/products.hooks'
-import { useState } from 'react'
+import {
+	useSellerProducts,
+	useDeleteProduct,
+} from '@/services/utils/products.hooks'
+import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
+import {
+	Pagination,
+	PaginationContent,
+	PaginationEllipsis,
+	PaginationItem,
+	PaginationLink,
+	PaginationNext,
+	PaginationPrevious,
+} from '@/components/ui/navigation/pagination'
 
 export default function SellerProducts() {
-	const [page] = useState(1)
-	const { data, isLoading, error } = useSellerProducts(page, 20)
+	const [page, setPage] = useState(1)
+	const limit = 20
+	const { data, isLoading, error } = useSellerProducts(page, limit)
+
+	// Scroll to top when page changes
+	useEffect(() => {
+		window.scrollTo({ top: 0, behavior: 'smooth' })
+	}, [page])
+
 	const deleteProductMutation = useDeleteProduct()
 
-	const handleDelete = async (productId: string, productName: string, bidCount: number) => {
+	const handleDelete = async (
+		productId: string,
+		productName: string,
+		bidCount: number
+	) => {
 		if (bidCount > 0) {
 			toast.error('Không thể xóa sản phẩm đã có người đấu giá')
 			return
@@ -46,6 +69,41 @@ export default function SellerProducts() {
 		return `${hours}h`
 	}
 
+	// Helper function to generate smart page numbers
+	const getPageNumbers = (
+		currentPage: number,
+		totalPages: number
+	): (number | 'ellipsis')[] => {
+		if (totalPages <= 7) {
+			return Array.from({ length: totalPages }, (_, i) => i + 1)
+		}
+
+		const pages: (number | 'ellipsis')[] = []
+		pages.push(1)
+
+		if (currentPage > 3) {
+			pages.push('ellipsis')
+		}
+
+		for (
+			let i = Math.max(2, currentPage - 1);
+			i <= Math.min(totalPages - 1, currentPage + 1);
+			i++
+		) {
+			pages.push(i)
+		}
+
+		if (currentPage < totalPages - 2) {
+			pages.push('ellipsis')
+		}
+
+		if (totalPages > 1) {
+			pages.push(totalPages)
+		}
+
+		return pages
+	}
+
 	return (
 		<div className="min-h-screen bg-background">
 			<Header />
@@ -53,7 +111,9 @@ export default function SellerProducts() {
 			<main className="container py-8">
 				<div className="flex items-center justify-between mb-8">
 					<div>
-						<h1 className="text-3xl font-bold mb-2">Quản lý sản phẩm</h1>
+						<h1 className="text-3xl font-bold mb-2">
+							Quản lý sản phẩm
+						</h1>
 						<p className="text-muted-foreground">
 							Danh sách sản phẩm đang đấu giá của bạn
 						</p>
@@ -93,104 +153,209 @@ export default function SellerProducts() {
 				)}
 
 				{data && data.data.products.length > 0 && (
-					<div className="grid gap-4">
-						{data.data.products.map((product) => (
-							<Card key={product._id}>
-								<CardContent className="p-6">
-									<div className="flex gap-6">
-										<img
-											src={product.images?.[0] || '/images/placeholder.jpg'}
-											alt={product.name}
-											className="w-32 h-32 object-cover rounded-lg"
-										/>
+					<>
+						{/* Product count info */}
+						<div className="flex items-center justify-between mb-4">
+							<p className="text-sm text-muted-foreground">
+								Hiển thị {(page - 1) * limit + 1} -{' '}
+								{Math.min(page * limit, data.data.total)} trong
+								tổng số {data.data.total} sản phẩm
+							</p>
+						</div>
 
-										<div className="flex-1">
-											<div className="flex items-start justify-between mb-2">
-												<div>
-													<h3 className="font-semibold text-lg mb-1">
-														{product.name}
-													</h3>
-													<Badge variant="secondary">
-														{product.categoryName || 'Chưa phân loại'}
-													</Badge>
-												</div>
-												<div className="flex gap-2">
-													<Link to={`/products/${product._id}`}>
-														<Button variant="outline" size="sm">
-															<Eye className="h-4 w-4 mr-1" />
-															Xem
+						<div className="grid gap-4">
+							{data.data.products.map((product) => (
+								<Card key={product._id}>
+									<CardContent className="p-6">
+										<div className="flex gap-6">
+											<img
+												src={
+													product.images?.[0] ||
+													'/images/placeholder.jpg'
+												}
+												alt={product.name}
+												className="w-32 h-32 object-cover rounded-lg"
+											/>
+
+											<div className="flex-1">
+												<div className="flex items-start justify-between mb-2">
+													<div>
+														<h3 className="font-semibold text-lg mb-1">
+															{product.name}
+														</h3>
+														<Badge variant="secondary">
+															{product.categoryName ||
+																'Chưa phân loại'}
+														</Badge>
+													</div>
+													<div className="flex gap-2">
+														<Link
+															to={`/products/${product._id}`}
+														>
+															<Button
+																variant="outline"
+																size="sm"
+															>
+																<Eye className="h-4 w-4 mr-1" />
+																Xem
+															</Button>
+														</Link>
+														<Link
+															to={`/seller/products/${product._id}/edit`}
+														>
+															<Button
+																variant="outline"
+																size="sm"
+															>
+																<Edit className="h-4 w-4 mr-1" />
+																Sửa mô tả
+															</Button>
+														</Link>
+
+														<Button
+															variant="destructive"
+															size="sm"
+															onClick={() =>
+																handleDelete(
+																	product._id,
+																	product.name,
+																	product.bidCount ||
+																		0
+																)
+															}
+															disabled={
+																deleteProductMutation.isPending
+															}
+														>
+															{deleteProductMutation.isPending ? (
+																<Loader2 className="h-4 w-4 animate-spin" />
+															) : (
+																<Trash2 className="h-4 w-4" />
+															)}
 														</Button>
-													</Link>
-													<Link
-														to={`/seller/products/${product._id}/edit`}
-													>
-														<Button variant="outline" size="sm">
-															<Edit className="h-4 w-4 mr-1" />
-															Sửa mô tả
-														</Button>
-													</Link>
+													</div>
+												</div>
 
-													<Button
-														variant="destructive"
-														size="sm"
-														onClick={() =>
-															handleDelete(
-																product._id,
-																product.name,
-																product.bidCount || 0
-															)
-														}
-														disabled={deleteProductMutation.isPending}
-													>
-														{deleteProductMutation.isPending ? (
-															<Loader2 className="h-4 w-4 animate-spin" />
-														) : (
-															<Trash2 className="h-4 w-4" />
-														)}
-													</Button>
-												</div>
-											</div>
-
-											<div className="grid grid-cols-4 gap-4 mt-4">
-												<div>
-													<p className="text-sm text-muted-foreground">
-														Giá hiện tại
-													</p>
-													<p className="text-lg font-bold text-primary">
-														{product.currentPrice.toLocaleString('vi-VN')}₫
-													</p>
-												</div>
-												<div>
-													<p className="text-sm text-muted-foreground">
-														Số lượt đấu giá
-													</p>
-													<p className="text-lg font-semibold">
-														{product.bidCount || 0}
-													</p>
-												</div>
-												<div>
-													<p className="text-sm text-muted-foreground">
-														Người đấu giá cao nhất
-													</p>
-													<p className="text-lg font-semibold">
-														{product.highestBidderName || 'Chưa có'}
-													</p>
-												</div>
-												<div>
-													<p className="text-sm text-muted-foreground">
-														Thời gian còn lại
-													</p>
-													<p className="text-lg font-semibold">
-														{formatTimeRemaining(product.endTime)}
-													</p>
+												<div className="grid grid-cols-4 gap-4 mt-4">
+													<div>
+														<p className="text-sm text-muted-foreground">
+															Giá hiện tại
+														</p>
+														<p className="text-lg font-bold text-primary">
+															{product.currentPrice.toLocaleString(
+																'vi-VN'
+															)}
+															₫
+														</p>
+													</div>
+													<div>
+														<p className="text-sm text-muted-foreground">
+															Số lượt đấu giá
+														</p>
+														<p className="text-lg font-semibold">
+															{product.bidCount ||
+																0}
+														</p>
+													</div>
+													<div>
+														<p className="text-sm text-muted-foreground">
+															Người đấu giá cao
+															nhất
+														</p>
+														<p className="text-lg font-semibold">
+															{product.highestBidderName ||
+																'Chưa có'}
+														</p>
+													</div>
+													<div>
+														<p className="text-sm text-muted-foreground">
+															Thời gian còn lại
+														</p>
+														<p className="text-lg font-semibold">
+															{formatTimeRemaining(
+																product.endTime
+															)}
+														</p>
+													</div>
 												</div>
 											</div>
 										</div>
-									</div>
-								</CardContent>
-							</Card>
-						))}
-					</div>
+									</CardContent>
+								</Card>
+							))}
+						</div>
+
+						{/* Pagination */}
+						{data.data.totalPages > 1 && (
+							<div className="mt-8">
+								<Pagination>
+									<PaginationContent>
+										<PaginationItem>
+											<PaginationPrevious
+												onClick={() =>
+													setPage((p) =>
+														Math.max(1, p - 1)
+													)
+												}
+												className={
+													page === 1
+														? 'pointer-events-none opacity-50'
+														: 'cursor-pointer'
+												}
+											/>
+										</PaginationItem>
+
+										{getPageNumbers(
+											page,
+											data.data.totalPages
+										).map((pageNum, idx) => (
+											<PaginationItem key={idx}>
+												{pageNum === 'ellipsis' ? (
+													<PaginationEllipsis />
+												) : (
+													<PaginationLink
+														onClick={() =>
+															setPage(pageNum)
+														}
+														isActive={
+															page === pageNum
+														}
+														className="cursor-pointer"
+													>
+														{pageNum}
+													</PaginationLink>
+												)}
+											</PaginationItem>
+										))}
+
+										<PaginationItem>
+											<PaginationNext
+												onClick={() =>
+													setPage((p) =>
+														Math.min(
+															data.data
+																.totalPages,
+															p + 1
+														)
+													)
+												}
+												className={
+													page ===
+													data.data.totalPages
+														? 'pointer-events-none opacity-50'
+														: 'cursor-pointer'
+												}
+											/>
+										</PaginationItem>
+									</PaginationContent>
+								</Pagination>
+
+								<p className="text-center text-sm text-muted-foreground mt-4">
+									Trang {page} / {data.data.totalPages}
+								</p>
+							</div>
+						)}
+					</>
 				)}
 			</main>
 		</div>

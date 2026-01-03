@@ -5,9 +5,11 @@ import { TrendingUp, Clock, DollarSign, Sparkles } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useHomeProducts } from '../services/utils/products.hooks'
 import MainLayout from '../components/MainLayout'
+import { useAuth } from '@/contexts/AuthContext'
 
 const Index = () => {
 	const { data, isLoading, isError } = useHomeProducts()
+	const { user } = useAuth() // Get user authentication status
 
 	const endingSoon = data?.endingSoon ?? []
 	const mostBids = data?.mostBids ?? []
@@ -173,79 +175,39 @@ const Index = () => {
 					</div>
 				</section>
 
-				{/* CTA Section */}
-				<section className="rounded-2xl bg-gradient-auction p-12 text-center text-white">
-					<div className="mx-auto max-w-2xl space-y-6">
-						<h2 className="text-3xl font-bold">
-							Sẵn sàng bắt đầu đấu giá?
-						</h2>
-						<p className="text-lg text-white/90">
-							Đăng ký ngay hôm nay và nhận ưu đãi đặc biệt cho
-							người dùng mới
-						</p>
-						<div className="flex flex-wrap justify-center gap-4">
-							<Button
-								size="lg"
-								variant="secondary"
-								className="bg-white text-blue-600 hover:bg-gray-100 font-semibold"
-							>
-								Đăng ký miễn phí
-							</Button>
-							<Button
-								size="lg"
-								variant="outline"
-								className="border-2 border-white bg-transparent text-white hover:bg-white/10 font-semibold"
-							>
-								Tìm hiểu thêm
-							</Button>
+				{/* CTA Section - Only show for non-logged-in users */}
+				{!user && (
+					<section className="rounded-2xl bg-gradient-auction p-12 text-center text-white">
+						<div className="mx-auto max-w-2xl space-y-6">
+							<h2 className="text-3xl font-bold">
+								Sẵn sàng bắt đầu đấu giá?
+							</h2>
+							<p className="text-lg text-white/90">
+								Đăng ký ngay hôm nay và nhận ưu đãi đặc biệt cho
+								người dùng mới
+							</p>
+							<div className="flex flex-wrap justify-center gap-4">
+								<Link to="/auth?tab=register">
+									<Button
+										size="lg"
+										variant="secondary"
+										className="bg-white text-blue-600 hover:bg-gray-100 font-semibold"
+									>
+										Đăng ký miễn phí
+									</Button>
+								</Link>
+								<Button
+									size="lg"
+									variant="outline"
+									className="border-2 border-white bg-transparent text-white hover:bg-white/10 font-semibold"
+								>
+									Tìm hiểu thêm
+								</Button>
+							</div>
 						</div>
-					</div>
-				</section>
+					</section>
+				)}
 			</div>
-
-			{/* Footer */}
-			<footer className="border-t bg-muted/50 py-12">
-				<div className="container">
-					<div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
-						<div>
-							<h3 className="mb-4 font-bold">Về AuctionHub</h3>
-							<ul className="space-y-2 text-sm text-muted-foreground">
-								<li>Giới thiệu</li>
-								<li>Liên hệ</li>
-								<li>Tuyển dụng</li>
-							</ul>
-						</div>
-						<div>
-							<h3 className="mb-4 font-bold">Hỗ trợ</h3>
-							<ul className="space-y-2 text-sm text-muted-foreground">
-								<li>Trung tâm trợ giúp</li>
-								<li>Điều khoản sử dụng</li>
-								<li>Chính sách bảo mật</li>
-							</ul>
-						</div>
-						<div>
-							<h3 className="mb-4 font-bold">Danh mục</h3>
-							<ul className="space-y-2 text-sm text-muted-foreground">
-								<li>Điện tử</li>
-								<li>Thời trang</li>
-								<li>Gia dụng</li>
-								<li>Sưu tầm</li>
-							</ul>
-						</div>
-						<div>
-							<h3 className="mb-4 font-bold">Kết nối</h3>
-							<ul className="space-y-2 text-sm text-muted-foreground">
-								<li>Facebook</li>
-								<li>Instagram</li>
-								<li>Twitter</li>
-							</ul>
-						</div>
-					</div>
-					<div className="mt-8 border-t pt-8 text-center text-sm text-muted-foreground">
-						© 2025 AuctionHub. All rights reserved.
-					</div>
-				</div>
-			</footer>
 		</MainLayout>
 	)
 }
