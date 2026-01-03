@@ -49,7 +49,7 @@ const Index = () => {
 	return (
 		<MainLayout>
 			{/* Hero Section */}
-			<section className="border-b bg-gradient-auction py-16 text-white -mx-6 px-6">
+			<section className="border-b bg-gradient-auction py-16 text-white -mx-6 px-6 mb-8">
 				<div className="container">
 					<div className="mx-auto max-w-3xl text-center space-y-6">
 						<Badge className="bg-white/20 text-white border-white/30 mb-4">
@@ -66,22 +66,6 @@ const Index = () => {
 							mỗi ngày. Từ công nghệ, thời trang đến đồ sưu tầm
 							độc đáo.
 						</p>
-						<div className="flex flex-wrap justify-center gap-4">
-							<Button
-								size="lg"
-								variant="secondary"
-								className="bg-white text-blue-600 hover:bg-gray-100 font-semibold"
-							>
-								Khám phá ngay
-							</Button>
-							<Button
-								size="lg"
-								variant="outline"
-								className="border-2 border-white bg-transparent text-white hover:bg-white/10 font-semibold"
-							>
-								Cách thức hoạt động
-							</Button>
-						</div>
 					</div>
 				</div>
 			</section>

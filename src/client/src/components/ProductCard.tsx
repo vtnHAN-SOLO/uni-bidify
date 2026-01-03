@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/input/button'
 import { Link } from 'react-router-dom'
 import { formatDistanceToNow } from 'date-fns'
 import { vi } from 'date-fns/locale'
-import { useWatchlist } from '@/contexts/WatchlistContext' // ✅ ADD THIS
+import { useWatchlist } from '@/contexts/WatchlistContext'
+import { formatCompactPrice } from '@/lib/utils'
 
 interface ProductCardProps {
 	id: string
@@ -116,7 +117,7 @@ export const ProductCard = ({
 									Giá hiện tại
 								</p>
 								<p className="text-xl font-bold text-primary">
-									{currentPrice.toLocaleString('vi-VN')}₫
+									{formatCompactPrice(currentPrice)}
 								</p>
 							</div>
 							{buyNowPrice && (
@@ -125,7 +126,7 @@ export const ProductCard = ({
 										Mua ngay
 									</p>
 									<p className="text-sm font-semibold text-accent">
-										{buyNowPrice.toLocaleString('vi-VN')}₫
+										{formatCompactPrice(buyNowPrice)}
 									</p>
 								</div>
 							)}
