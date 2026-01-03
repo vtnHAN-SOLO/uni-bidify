@@ -4,8 +4,10 @@ import Category from '../../Models/Category.js'
 import Settings from '../../Models/Settings.js'
 import Auth from '../../Middleware/Auth.js'
 import { ROLES } from '../../Data/Constants/index.js'
-import { check as checkRole } from '../../Middleware/Role.js'
-import { checkCanCreateProduct, checkSellerAccess } from '../../Middleware/SellerPermission.js'
+import {
+	checkCanCreateProduct,
+	checkSellerAccess,
+} from '../../Middleware/SellerPermission.js'
 
 const router = express.Router()
 
@@ -65,7 +67,11 @@ interface ProductDoc {
 		positiveReviews: number
 		negativeReviews: number
 	}
-	highestBidder?: { _id: { toString: () => string }; firstName: string; lastName: string }
+	highestBidder?: {
+		_id: { toString: () => string }
+		firstName: string
+		lastName: string
+	}
 }
 
 /**
@@ -164,7 +170,10 @@ const mapDocToDTO = (doc: unknown): ProductDTO => {
 
 		// ✅ Highest bidder info (masked) - same logic as bid history
 		highestBidderName: d.highestBidder
-			? maskUsername(d.highestBidder.firstName || '', d.highestBidder.lastName || '')
+			? maskUsername(
+					d.highestBidder.firstName || '',
+					d.highestBidder.lastName || ''
+				)
 			: 'Chưa có',
 		highestBidderId: d.highestBidder?._id
 			? d.highestBidder._id.toString()
@@ -201,8 +210,12 @@ router.get('/', async (req: Request, res: Response) => {
 		// Price filter
 		if (minPrice || maxPrice) {
 			query.currentPrice = {}
-			if (minPrice) (query.currentPrice as Record<string, number>).$gte = Number(minPrice)
-			if (maxPrice) (query.currentPrice as Record<string, number>).$lte = Number(maxPrice)
+			if (minPrice)
+				(query.currentPrice as Record<string, number>).$gte =
+					Number(minPrice)
+			if (maxPrice)
+				(query.currentPrice as Record<string, number>).$lte =
+					Number(maxPrice)
 		}
 
 		// Status filter
@@ -251,11 +264,12 @@ router.get('/', async (req: Request, res: Response) => {
 	}
 })
 
-// GET /api/products/search - Full-text search with fallback to regex
+// GET /api/products/search - MongoDB Full-text search
 // Features:
-// - Search by product name AND/OR category name
+// - Full-text search by product name using text index (better multi-word search)
+// - Search by category name (finds parent and child categories)
 // - Pagination
-// - Sort by: endTime (desc), currentPrice (asc)
+// - Sort by: relevance score (when searching), endTime (desc), currentPrice (asc)
 // - Mark new products (posted within N minutes) with isNew flag
 // - Option to include ended auctions
 router.get('/search', async (req: Request, res: Response) => {
@@ -286,13 +300,15 @@ router.get('/search', async (req: Request, res: Response) => {
 			query.isSold = false
 		}
 
-		// Search by product name (using both text search and regex for flexibility)
+		// Search by product name using MongoDB full-text search
+		// This uses the text index defined in Product model for better performance
+		let useTextSearch = false
 		if (q && String(q).trim().length >= 1) {
 			const searchQuery = String(q).trim()
-			// Escape special regex characters
-			const escapedQuery = searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-			// Use regex for partial match (case-insensitive)
-			query.name = { $regex: escapedQuery, $options: 'i' }
+
+			// Use MongoDB text search for better multi-word search and performance
+			query.$text = { $search: searchQuery }
+			useTextSearch = true
 		}
 
 		// Filter by category ID
@@ -304,12 +320,17 @@ router.get('/search', async (req: Request, res: Response) => {
 		// Also include child categories if searching by parent category
 		if (categoryName && String(categoryName).trim().length >= 1) {
 			const catNameQuery = String(categoryName).trim()
-			const escapedCatName = catNameQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+			const escapedCatName = catNameQuery.replace(
+				/[.*+?^${}()|[\]\\]/g,
+				'\\$&'
+			)
 
 			// Find matching categories by name
 			const matchingCategories = await Category.find({
 				name: { $regex: escapedCatName, $options: 'i' },
-			}).select('_id').lean()
+			})
+				.select('_id')
+				.lean()
 
 			if (matchingCategories.length > 0) {
 				const categoryIds: unknown[] = []
@@ -320,7 +341,9 @@ router.get('/search', async (req: Request, res: Response) => {
 				// Also find child categories of matching parent categories
 				const childCategories = await Category.find({
 					parent: { $in: categoryIds },
-				}).select('_id').lean()
+				})
+					.select('_id')
+					.lean()
 
 				for (const child of childCategories) {
 					categoryIds.push(child._id)
@@ -371,10 +394,25 @@ router.get('/search', async (req: Request, res: Response) => {
 			}
 		}
 
-		const sortQuery: Record<string, 1 | -1> = { [sortField]: sortOrder }
+		const sortQuery: Record<string, 1 | -1 | { $meta: string }> = {}
 
-		// Execute query
-		const products = await Product.find(query)
+		// If using text search, sort by relevance score first
+		if (useTextSearch) {
+			sortQuery.score = { $meta: 'textScore' }
+		}
+
+		// Then sort by user-specified field
+		sortQuery[sortField] = sortOrder
+
+		// Execute query with text score projection if using text search
+		const queryBuilder = Product.find(query)
+
+		if (useTextSearch) {
+			// Add text score to results for sorting
+			queryBuilder.select({ score: { $meta: 'textScore' } })
+		}
+
+		const products = await queryBuilder
 			.populate('category', 'name')
 			.populate(
 				'seller',
@@ -394,7 +432,10 @@ router.get('/search', async (req: Request, res: Response) => {
 			const dto = mapDocToDTO(doc)
 			// Mark as new if created within threshold
 			const docAny = doc as unknown as { createdAt?: Date }
-			if (docAny.createdAt && new Date(docAny.createdAt) >= newThreshold) {
+			if (
+				docAny.createdAt &&
+				new Date(docAny.createdAt) >= newThreshold
+			) {
 				dto.isNew = true
 			}
 			mappedProducts.push(dto)
@@ -635,8 +676,7 @@ router.get(
 		} catch (error: unknown) {
 			console.error('❌ Error fetching products by category ID:', error)
 			return res.status(500).json({
-				error:
-					String(error) || 'Không thể lấy sản phẩm theo danh mục.',
+				error: String(error) || 'Không thể lấy sản phẩm theo danh mục.',
 			})
 		}
 	}
@@ -712,9 +752,9 @@ router.get('/:id', async (req: Request, res: Response) => {
 			product: mapDocToDTO(product), // ✅ Now includes seller info
 		})
 	} catch (error: unknown) {
-		return res
-			.status(500)
-			.json({ error: String(error) || 'Không thể lấy thông tin sản phẩm.' })
+		return res.status(500).json({
+			error: String(error) || 'Không thể lấy thông tin sản phẩm.',
+		})
 	}
 })
 

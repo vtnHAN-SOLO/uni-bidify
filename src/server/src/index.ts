@@ -31,8 +31,9 @@ const app = express()
 // )
 
 // Middleware to parse URL-encoded data and JSON data
-app.use(express.urlencoded({ extended: true }))
-app.use(express.json())
+// Increased limit to 50mb to support base64 image uploads
+app.use(express.urlencoded({ extended: true, limit: '50mb' }))
+app.use(express.json({ limit: '50mb' }))
 
 // Middleware to enhance security by setting various HTTP headers
 app.use(
