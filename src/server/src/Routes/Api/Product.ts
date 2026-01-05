@@ -96,7 +96,7 @@ const maskUsername = (firstName: string, lastName: string): string => {
 router.get('/auction-settings', async (_req: Request, res: Response) => {
 	try {
 		// Get settings from database
-		let settings = await Settings.findOne().lean()
+		const settings = await Settings.findOne().lean()
 
 		// Return default values if no settings exist
 		if (!settings) {
@@ -300,15 +300,18 @@ router.get('/search', async (req: Request, res: Response) => {
 			query.isSold = false
 		}
 
-		// Search by product name using MongoDB full-text search
-		// This uses the text index defined in Product model for better performance
-		let useTextSearch = false
+		// Search by product name using regex for partial matching
+		// This allows searching "sam" to find "samsung"
 		if (q && String(q).trim().length >= 1) {
 			const searchQuery = String(q).trim()
+			// Escape special regex characters to prevent injection
+			const escapedQuery = searchQuery.replace(
+				/[.*+?^${}()|[\]\\]/g,
+				'\\$&'
+			)
 
-			// Use MongoDB text search for better multi-word search and performance
-			query.$text = { $search: searchQuery }
-			useTextSearch = true
+			// Use case-insensitive regex for partial matching
+			query.name = { $regex: escapedQuery, $options: 'i' }
 		}
 
 		// Filter by category ID
@@ -394,25 +397,12 @@ router.get('/search', async (req: Request, res: Response) => {
 			}
 		}
 
-		const sortQuery: Record<string, 1 | -1 | { $meta: string }> = {}
-
-		// If using text search, sort by relevance score first
-		if (useTextSearch) {
-			sortQuery.score = { $meta: 'textScore' }
-		}
-
-		// Then sort by user-specified field
+		// Build sort query
+		const sortQuery: Record<string, 1 | -1> = {}
 		sortQuery[sortField] = sortOrder
 
-		// Execute query with text score projection if using text search
-		const queryBuilder = Product.find(query)
-
-		if (useTextSearch) {
-			// Add text score to results for sorting
-			queryBuilder.select({ score: { $meta: 'textScore' } })
-		}
-
-		const products = await queryBuilder
+		// Execute query
+		const products = await Product.find(query)
 			.populate('category', 'name')
 			.populate(
 				'seller',
