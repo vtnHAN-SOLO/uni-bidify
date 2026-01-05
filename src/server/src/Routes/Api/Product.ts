@@ -869,7 +869,7 @@ router.put(
 				})
 			}
 
-			// Append description with timestamp marker
+			// Append description with timestamp marker (HTML format)
 			const now = new Date()
 			const dateStr = now.toLocaleDateString('vi-VN')
 			const timeStr = now.toLocaleTimeString('vi-VN', {
@@ -877,7 +877,7 @@ router.put(
 				minute: '2-digit',
 			})
 
-			const appendedContent = `\n\n---\n✏️ Cập nhật lúc ${timeStr} ngày ${dateStr}\n\n${content.trim()}`
+			const appendedContent = `<hr><p><em>✏️ Cập nhật lúc ${timeStr} ngày ${dateStr}</em></p><div>${content.trim()}</div>`
 
 			product.description = product.description + appendedContent
 			await product.save()

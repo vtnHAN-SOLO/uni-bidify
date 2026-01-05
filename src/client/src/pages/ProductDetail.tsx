@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input/input'
 import { Textarea } from '@/components/ui/input/textarea'
 import { Avatar, AvatarFallback } from '@/components/ui/data-display/avatar'
 import { Label } from '@/components/ui/input/label'
+import { HtmlContent } from '@/components/ui/data-display/html-content'
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -503,9 +504,7 @@ const ProductDetail = () => {
 								</CardTitle>
 							</CardHeader>
 							<CardContent>
-								<div className="prose prose-sm max-w-none whitespace-pre-wrap">
-									{product.description}
-								</div>
+								<HtmlContent html={product.description} />
 							</CardContent>
 						</Card>
 					</div>
@@ -845,9 +844,7 @@ const ProductDetail = () => {
 									</CardTitle>
 								</CardHeader>
 								<CardContent>
-									<div className="prose prose-sm max-w-none whitespace-pre-wrap">
-										{product.description}
-									</div>
+									<HtmlContent html={product.description} />
 								</CardContent>
 							</Card>
 

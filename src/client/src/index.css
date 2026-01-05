@@ -139,3 +139,105 @@ All colors MUST be HSL.
 		animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 	}
 }
+
+/* Rich Text Editor (Quill) Styles */
+.rich-text-editor .ql-container {
+	@apply border-input rounded-b-md text-base min-h-[200px];
+}
+
+.rich-text-editor .ql-toolbar {
+	@apply border-input rounded-t-md bg-muted/50;
+}
+
+.rich-text-editor .ql-editor {
+	@apply min-h-[200px];
+}
+
+.rich-text-editor .ql-editor.ql-blank::before {
+	@apply text-muted-foreground italic;
+}
+
+/* Dark mode support for Quill */
+.dark .rich-text-editor .ql-toolbar {
+	@apply bg-muted border-input;
+}
+
+.dark .rich-text-editor .ql-container {
+	@apply bg-background border-input;
+}
+
+.dark .rich-text-editor .ql-editor {
+	@apply text-foreground;
+}
+
+.dark .rich-text-editor .ql-stroke {
+	stroke: hsl(var(--foreground));
+}
+
+.dark .rich-text-editor .ql-fill {
+	fill: hsl(var(--foreground));
+}
+
+.dark .rich-text-editor .ql-picker-label {
+	color: hsl(var(--foreground));
+}
+
+.dark .rich-text-editor .ql-picker-options {
+	@apply bg-popover border-border;
+}
+
+/* HTML Content Display Styles */
+.html-content h1 {
+	@apply text-2xl font-bold mb-4;
+}
+
+.html-content h2 {
+	@apply text-xl font-bold mb-3;
+}
+
+.html-content h3 {
+	@apply text-lg font-semibold mb-2;
+}
+
+.html-content p {
+	@apply mb-2;
+}
+
+.html-content ul {
+	@apply list-disc pl-6 mb-2;
+}
+
+.html-content ol {
+	@apply list-decimal pl-6 mb-2;
+}
+
+.html-content li {
+	@apply mb-1;
+}
+
+.html-content a {
+	@apply text-primary underline hover:text-primary/80;
+}
+
+.html-content strong,
+.html-content b {
+	@apply font-bold;
+}
+
+.html-content em,
+.html-content i {
+	@apply italic;
+}
+
+.html-content u {
+	@apply underline;
+}
+
+.html-content s,
+.html-content strike {
+	@apply line-through;
+}
+
+.html-content hr {
+	@apply my-4 border-t border-border;
+}
