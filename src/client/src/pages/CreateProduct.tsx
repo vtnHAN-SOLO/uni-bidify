@@ -13,6 +13,8 @@ import {
 	CardTitle,
 } from '@/components/ui/data-display/card'
 import { Textarea } from '@/components/ui/input/textarea'
+import { RichTextEditor } from '@/components/ui/input/rich-text-editor'
+import { HtmlContent } from '@/components/ui/data-display/html-content'
 import {
 	Select,
 	SelectContent,
@@ -133,7 +135,9 @@ export default function CreateProduct() {
 		if (!endTime) return 'Vui lòng chọn thời gian kết thúc'
 		if (new Date(endTime) <= new Date())
 			return 'Thời gian kết thúc phải sau thời điểm hiện tại'
-		if (!description.trim()) return 'Vui lòng nhập mô tả sản phẩm'
+		// Strip HTML tags to check if there's actual content
+		const textContent = description.replace(/<[^>]*>/g, '').trim()
+		if (!textContent) return 'Vui lòng nhập mô tả sản phẩm'
 		return null
 	}
 
@@ -250,7 +254,6 @@ export default function CreateProduct() {
 									placeholder="Ví dụ: iPhone 15 Pro Max 256GB"
 									value={name}
 									onChange={(e) => setName(e.target.value)}
-									required
 								/>
 							</div>
 
@@ -396,8 +399,6 @@ export default function CreateProduct() {
 										placeholder="1000000"
 										value={startPrice}
 										onChange={(e) => setStartPrice(e.target.value)}
-										min="1000"
-										required
 									/>
 								</div>
 								<div className="space-y-2">
@@ -408,8 +409,6 @@ export default function CreateProduct() {
 										placeholder="100000"
 										value={priceStep}
 										onChange={(e) => setPriceStep(e.target.value)}
-										min="1000"
-										required
 									/>
 								</div>
 							</div>
@@ -424,7 +423,6 @@ export default function CreateProduct() {
 									placeholder="15000000"
 									value={buyNowPrice}
 									onChange={(e) => setBuyNowPrice(e.target.value)}
-									min={startPrice ? Number(startPrice) + 1 : 1}
 								/>
 								<p className="text-sm text-muted-foreground">
 									Để trống nếu không muốn có tùy chọn mua ngay
@@ -438,8 +436,6 @@ export default function CreateProduct() {
 									type="datetime-local"
 									value={endTime}
 									onChange={(e) => setEndTime(e.target.value)}
-									min={new Date().toISOString().slice(0, 16)}
-									required
 								/>
 							</div>
 
@@ -478,13 +474,10 @@ export default function CreateProduct() {
 
 							<div className="space-y-2">
 								<Label htmlFor="description">Mô tả sản phẩm *</Label>
-								<Textarea
-									id="description"
-									placeholder="Mô tả chi tiết về sản phẩm..."
-									rows={10}
+								<RichTextEditor
 									value={description}
-									onChange={(e) => setDescription(e.target.value)}
-									required
+									onChange={setDescription}
+									placeholder="Mô tả chi tiết về sản phẩm..."
 								/>
 							</div>
 
@@ -595,8 +588,12 @@ export default function CreateProduct() {
 						{/* Description */}
 						<div>
 							<h3 className="font-semibold mb-2">Mô tả sản phẩm</h3>
-							<div className="p-4 border rounded-lg bg-muted/50 whitespace-pre-wrap">
-								{description || 'Chưa có mô tả'}
+							<div className="p-4 border rounded-lg bg-muted/50">
+								{description ? (
+									<HtmlContent html={description} />
+								) : (
+									<p className="text-muted-foreground">Chưa có mô tả</p>
+								)}
 							</div>
 						</div>
 					</div>

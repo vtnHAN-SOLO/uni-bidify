@@ -198,15 +198,43 @@ export default function AdminUsers() {
 	}
 
 	const handleCreateUser = () => {
-		if (
-			!newUserData.firstName.trim() ||
-			!newUserData.lastName.trim() ||
-			!newUserData.email.trim() ||
-			!newUserData.address?.trim()
-		) {
+		// Custom validation
+		if (!newUserData.firstName.trim()) {
 			toast({
 				title: 'Lỗi',
-				description: 'Vui lòng nhập họ, tên, email và địa chỉ người dùng',
+				description: 'Vui lòng nhập họ người dùng',
+				variant: 'destructive',
+			})
+			return
+		}
+		if (!newUserData.lastName.trim()) {
+			toast({
+				title: 'Lỗi',
+				description: 'Vui lòng nhập tên người dùng',
+				variant: 'destructive',
+			})
+			return
+		}
+		if (!newUserData.email.trim()) {
+			toast({
+				title: 'Lỗi',
+				description: 'Vui lòng nhập email người dùng',
+				variant: 'destructive',
+			})
+			return
+		}
+		if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newUserData.email)) {
+			toast({
+				title: 'Lỗi',
+				description: 'Email không hợp lệ',
+				variant: 'destructive',
+			})
+			return
+		}
+		if (!newUserData.address?.trim()) {
+			toast({
+				title: 'Lỗi',
+				description: 'Vui lòng nhập địa chỉ người dùng',
 				variant: 'destructive',
 			})
 			return
@@ -488,7 +516,7 @@ export default function AdminUsers() {
 												<div className="space-y-2">
 													<Label>Email</Label>
 													<Input
-														type="email"
+														type="text"
 														placeholder="Nhập email"
 														value={
 															newUserData.email
@@ -518,7 +546,6 @@ export default function AdminUsers() {
 																		.value,
 															})
 														}
-														required
 													/>
 												</div>
 												<div className="space-y-2">

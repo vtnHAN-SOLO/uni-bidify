@@ -2,10 +2,15 @@ import express, { Request, Response } from 'express'
 import Product from '../../Models/Product.js'
 import Category from '../../Models/Category.js'
 import Settings from '../../Models/Settings.js'
+import Bid from '../../Models/Bid.js'
+import User from '../../Models/User.js'
 import Auth from '../../Middleware/Auth.js'
 import { ROLES } from '../../Data/Constants/index.js'
-import { check as checkRole } from '../../Middleware/Role.js'
-import { checkCanCreateProduct, checkSellerAccess } from '../../Middleware/SellerPermission.js'
+import {
+	checkCanCreateProduct,
+	checkSellerAccess,
+} from '../../Middleware/SellerPermission.js'
+import MailService from '../../Services/MailService/index.js'
 
 const router = express.Router()
 
@@ -65,7 +70,11 @@ interface ProductDoc {
 		positiveReviews: number
 		negativeReviews: number
 	}
-	highestBidder?: { _id: { toString: () => string }; firstName: string; lastName: string }
+	highestBidder?: {
+		_id: { toString: () => string }
+		firstName: string
+		lastName: string
+	}
 }
 
 /**
@@ -90,7 +99,7 @@ const maskUsername = (firstName: string, lastName: string): string => {
 router.get('/auction-settings', async (_req: Request, res: Response) => {
 	try {
 		// Get settings from database
-		let settings = await Settings.findOne().lean()
+		const settings = await Settings.findOne().lean()
 
 		// Return default values if no settings exist
 		if (!settings) {
@@ -164,7 +173,10 @@ const mapDocToDTO = (doc: unknown): ProductDTO => {
 
 		// ✅ Highest bidder info (masked) - same logic as bid history
 		highestBidderName: d.highestBidder
-			? maskUsername(d.highestBidder.firstName || '', d.highestBidder.lastName || '')
+			? maskUsername(
+					d.highestBidder.firstName || '',
+					d.highestBidder.lastName || ''
+				)
 			: 'Chưa có',
 		highestBidderId: d.highestBidder?._id
 			? d.highestBidder._id.toString()
@@ -201,8 +213,12 @@ router.get('/', async (req: Request, res: Response) => {
 		// Price filter
 		if (minPrice || maxPrice) {
 			query.currentPrice = {}
-			if (minPrice) (query.currentPrice as Record<string, number>).$gte = Number(minPrice)
-			if (maxPrice) (query.currentPrice as Record<string, number>).$lte = Number(maxPrice)
+			if (minPrice)
+				(query.currentPrice as Record<string, number>).$gte =
+					Number(minPrice)
+			if (maxPrice)
+				(query.currentPrice as Record<string, number>).$lte =
+					Number(maxPrice)
 		}
 
 		// Status filter
@@ -251,11 +267,12 @@ router.get('/', async (req: Request, res: Response) => {
 	}
 })
 
-// GET /api/products/search - Full-text search with fallback to regex
+// GET /api/products/search - MongoDB Full-text search
 // Features:
-// - Search by product name AND/OR category name
+// - Full-text search by product name using text index (better multi-word search)
+// - Search by category name (finds parent and child categories)
 // - Pagination
-// - Sort by: endTime (desc), currentPrice (asc)
+// - Sort by: relevance score (when searching), endTime (desc), currentPrice (asc)
 // - Mark new products (posted within N minutes) with isNew flag
 // - Option to include ended auctions
 router.get('/search', async (req: Request, res: Response) => {
@@ -286,12 +303,17 @@ router.get('/search', async (req: Request, res: Response) => {
 			query.isSold = false
 		}
 
-		// Search by product name (using both text search and regex for flexibility)
+		// Search by product name using regex for partial matching
+		// This allows searching "sam" to find "samsung"
 		if (q && String(q).trim().length >= 1) {
 			const searchQuery = String(q).trim()
-			// Escape special regex characters
-			const escapedQuery = searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-			// Use regex for partial match (case-insensitive)
+			// Escape special regex characters to prevent injection
+			const escapedQuery = searchQuery.replace(
+				/[.*+?^${}()|[\]\\]/g,
+				'\\$&'
+			)
+
+			// Use case-insensitive regex for partial matching
 			query.name = { $regex: escapedQuery, $options: 'i' }
 		}
 
@@ -304,12 +326,17 @@ router.get('/search', async (req: Request, res: Response) => {
 		// Also include child categories if searching by parent category
 		if (categoryName && String(categoryName).trim().length >= 1) {
 			const catNameQuery = String(categoryName).trim()
-			const escapedCatName = catNameQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+			const escapedCatName = catNameQuery.replace(
+				/[.*+?^${}()|[\]\\]/g,
+				'\\$&'
+			)
 
 			// Find matching categories by name
 			const matchingCategories = await Category.find({
 				name: { $regex: escapedCatName, $options: 'i' },
-			}).select('_id').lean()
+			})
+				.select('_id')
+				.lean()
 
 			if (matchingCategories.length > 0) {
 				const categoryIds: unknown[] = []
@@ -320,7 +347,9 @@ router.get('/search', async (req: Request, res: Response) => {
 				// Also find child categories of matching parent categories
 				const childCategories = await Category.find({
 					parent: { $in: categoryIds },
-				}).select('_id').lean()
+				})
+					.select('_id')
+					.lean()
 
 				for (const child of childCategories) {
 					categoryIds.push(child._id)
@@ -371,7 +400,9 @@ router.get('/search', async (req: Request, res: Response) => {
 			}
 		}
 
-		const sortQuery: Record<string, 1 | -1> = { [sortField]: sortOrder }
+		// Build sort query
+		const sortQuery: Record<string, 1 | -1> = {}
+		sortQuery[sortField] = sortOrder
 
 		// Execute query
 		const products = await Product.find(query)
@@ -394,7 +425,10 @@ router.get('/search', async (req: Request, res: Response) => {
 			const dto = mapDocToDTO(doc)
 			// Mark as new if created within threshold
 			const docAny = doc as unknown as { createdAt?: Date }
-			if (docAny.createdAt && new Date(docAny.createdAt) >= newThreshold) {
+			if (
+				docAny.createdAt &&
+				new Date(docAny.createdAt) >= newThreshold
+			) {
 				dto.isNew = true
 			}
 			mappedProducts.push(dto)
@@ -635,8 +669,7 @@ router.get(
 		} catch (error: unknown) {
 			console.error('❌ Error fetching products by category ID:', error)
 			return res.status(500).json({
-				error:
-					String(error) || 'Không thể lấy sản phẩm theo danh mục.',
+				error: String(error) || 'Không thể lấy sản phẩm theo danh mục.',
 			})
 		}
 	}
@@ -712,9 +745,9 @@ router.get('/:id', async (req: Request, res: Response) => {
 			product: mapDocToDTO(product), // ✅ Now includes seller info
 		})
 	} catch (error: unknown) {
-		return res
-			.status(500)
-			.json({ error: String(error) || 'Không thể lấy thông tin sản phẩm.' })
+		return res.status(500).json({
+			error: String(error) || 'Không thể lấy thông tin sản phẩm.',
+		})
 	}
 })
 
@@ -869,7 +902,7 @@ router.put(
 				})
 			}
 
-			// Append description with timestamp marker
+			// Append description with timestamp marker (HTML format)
 			const now = new Date()
 			const dateStr = now.toLocaleDateString('vi-VN')
 			const timeStr = now.toLocaleTimeString('vi-VN', {
@@ -877,10 +910,46 @@ router.put(
 				minute: '2-digit',
 			})
 
-			const appendedContent = `\n\n---\n✏️ Cập nhật lúc ${timeStr} ngày ${dateStr}\n\n${content.trim()}`
+			const appendedContent = `<hr><p><em>✏️ Cập nhật lúc ${timeStr} ngày ${dateStr}</em></p><div>${content.trim()}</div>`
 
 			product.description = product.description + appendedContent
 			await product.save()
+
+			// ==================== SEND EMAIL TO ALL BIDDERS ====================
+			try {
+				// Get seller info
+				const seller = await User.findById(product.seller).lean()
+
+				// Get all unique bidders for this product
+				const bidderIds = await Bid.find({ product: id })
+					.distinct('bidder')
+					.lean()
+
+				if (seller && bidderIds.length > 0) {
+					// Get all bidder info
+					const bidders = await User.find({ _id: { $in: bidderIds } }).lean()
+
+					const sellerName = `${seller.firstName} ${seller.lastName}`
+
+					// Send email to each bidder
+					for (const bidder of bidders) {
+						MailService.sendMail(bidder.email, 'product-description-updated', {
+							productName: product.name,
+							sellerName,
+							bidderName: `${bidder.firstName} ${bidder.lastName}`,
+							productId: id,
+							updatedAt: now,
+						}).catch((err) =>
+							console.error(`❌ Failed to send description update email to ${bidder.email}:`, err)
+						)
+					}
+
+					console.log(`✅ Sent description update emails to ${bidders.length} bidder(s) for product ${id}`)
+				}
+			} catch (emailError) {
+				console.error('❌ Error sending description update emails:', emailError)
+				// Don't fail the update if email fails
+			}
 
 			return res.json({
 				success: true,

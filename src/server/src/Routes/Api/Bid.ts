@@ -380,6 +380,9 @@ router.post('/', Auth, async (req: Request, res: Response) => {
 			})
 		}
 
+		// Save previous highest bidder ID BEFORE processing auto-bid (for outbid notification)
+		const previousHighestBidderId = product.highestBidder?.toString()
+
 		// Process auto-bidding
 		const { finalPrice, winnerId, winnerMaxPrice, autoBidOccurred } = await processAutoBid(
 			product,
@@ -472,14 +475,14 @@ router.post('/', Auth, async (req: Request, res: Response) => {
 				// 3. If there was a previous highest bidder who got outbid, notify them
 				if (autoBidOccurred && isWinner) {
 					// New bidder won, previous holder got outbid
-					const previousBidderId = product.highestBidder?.toString()
-					if (previousBidderId && previousBidderId !== user._id.toString()) {
-						const previousBidder = await User.findById(previousBidderId).lean()
+					// Use previousHighestBidderId saved BEFORE updating product
+					if (previousHighestBidderId && previousHighestBidderId !== user._id.toString()) {
+						const previousBidder = await User.findById(previousHighestBidderId).lean()
 						if (previousBidder) {
 							// Get previous bidder's max bid
 							const previousBid = await Bid.findOne({
 								product: productId,
-								bidder: previousBidderId,
+								bidder: previousHighestBidderId,
 							})
 								.sort({ maxPrice: -1 })
 								.lean()
@@ -491,6 +494,7 @@ router.post('/', Auth, async (req: Request, res: Response) => {
 								outbidderName: `${bidderInfo.firstName} ${bidderInfo.lastName}`,
 								previousBidderName: `${previousBidder.firstName} ${previousBidder.lastName}`,
 								endTime: product.endTime,
+								productId: productId,
 							}).catch((err) =>
 								console.error('❌ Failed to send outbid email:', err)
 							)
@@ -505,6 +509,7 @@ router.post('/', Auth, async (req: Request, res: Response) => {
 						outbidderName: 'Hệ thống tự động',
 						previousBidderName: `${bidderInfo.firstName} ${bidderInfo.lastName}`,
 						endTime: product.endTime,
+						productId: productId,
 					}).catch((err) =>
 						console.error('❌ Failed to send outbid email to new bidder:', err)
 					)

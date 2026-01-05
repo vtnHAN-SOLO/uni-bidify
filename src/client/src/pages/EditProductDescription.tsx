@@ -9,8 +9,9 @@ import {
 	CardHeader,
 	CardTitle,
 } from '@/components/ui/data-display/card'
-import { Textarea } from '@/components/ui/input/textarea'
 import { Label } from '@/components/ui/input/label'
+import { RichTextEditor } from '@/components/ui/input/rich-text-editor'
+import { HtmlContent } from '@/components/ui/data-display/html-content'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import { useProductDetail, useAppendProductDescription } from '@/services/utils/products.hooks'
 import { toast } from 'sonner'
@@ -51,6 +52,13 @@ export default function EditProductDescription() {
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault()
+
+		// Strip HTML tags to check if there's actual content
+		const textContent = additionalDescription.replace(/<[^>]*>/g, '').trim()
+		if (!textContent) {
+			toast.error('Vui lòng nhập thông tin bổ sung')
+			return
+		}
 
 		try {
 			await appendDescriptionMutation.mutateAsync({
@@ -111,9 +119,7 @@ export default function EditProductDescription() {
 								<div className="space-y-2">
 									<Label>Mô tả hiện tại</Label>
 									<div className="p-4 border rounded-lg bg-muted/50 max-h-60 overflow-y-auto">
-										<p className="text-sm whitespace-pre-wrap">
-											{product.description}
-										</p>
+										<HtmlContent html={product.description} />
 									</div>
 								</div>
 
@@ -121,17 +127,10 @@ export default function EditProductDescription() {
 									<Label htmlFor="additional-description">
 										Thông tin bổ sung *
 									</Label>
-									<Textarea
-										id="additional-description"
+									<RichTextEditor
 										value={additionalDescription}
-										onChange={(e) =>
-											setAdditionalDescription(
-												e.target.value
-											)
-										}
+										onChange={setAdditionalDescription}
 										placeholder="Nhập thông tin bổ sung cho sản phẩm..."
-										className="min-h-[200px]"
-										required
 									/>
 									<p className="text-sm text-muted-foreground">
 										Thông tin này sẽ được thêm vào cuối mô

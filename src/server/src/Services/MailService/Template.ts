@@ -1,5 +1,6 @@
 import assert from 'assert'
 import type { Name, Email } from '../../Data/Types/index.js'
+import Keys from '../../Config/Keys.js'
 
 // ============================================
 // HELPER FUNCTIONS
@@ -81,31 +82,31 @@ function registrationOtpEmail(data: {
 
 	const html = wrapHtml(`
         <div class="header">
-            <h1>Chao mung den AuctionHub!</h1>
+            <h1>Chào mừng đến AuctionHub!</h1>
         </div>
         <div class="content">
-            <p>Xin chao <strong>${fullName}</strong>,</p>
-            <p>Cam on ban da dang ky tai khoan tai AuctionHub! De hoan tat dang ky, vui long nhap ma OTP sau:</p>
+            <p>Xin chào <strong>${fullName}</strong>,</p>
+            <p>Cảm ơn bạn đã đăng ký tài khoản tại AuctionHub! Để hoàn tất đăng ký, vui lòng nhập mã OTP sau:</p>
             <div style="text-align: center; margin: 30px 0;">
                 <div class="otp-code">${otp}</div>
             </div>
             <div class="warning">
-                <strong>Luu y:</strong> Ma OTP se het han sau ${expiresIn}.
+                <strong>Lưu ý:</strong> Mã OTP sẽ hết hạn sau ${expiresIn}.
             </div>
             <div class="info">
-                <strong>Bao mat:</strong>
+                <strong>Bảo mật:</strong>
                 <ul>
-                    <li>Khong chia se ma OTP nay voi bat ky ai</li>
-                    <li>AuctionHub se khong bao gio yeu cau ma OTP qua dien thoai</li>
-                    <li>Neu ban khong tao tai khoan nay, hay bo qua email nay</li>
+                    <li>Không chia sẻ mã OTP này với bất kỳ ai</li>
+                    <li>AuctionHub sẽ không bao giờ yêu cầu mã OTP qua điện thoại</li>
+                    <li>Nếu bạn không tạo tài khoản này, hãy bỏ qua email này</li>
                 </ul>
             </div>
         </div>
     `)
 
 	return {
-		subject: 'Xac thuc tai khoan AuctionHub - Ma OTP cua ban',
-		text: `Xin chao ${fullName},\n\nMa OTP cua ban la: ${otp}\nMa se het han sau ${expiresIn}.\n\nAuctionHub Team`,
+		subject: 'Xác thực tài khoản AuctionHub - Mã OTP của bạn',
+		text: `Xin chào ${fullName},\n\nMã OTP của bạn là: ${otp}\nMã sẽ hết hạn sau ${expiresIn}.\n\nAuctionHub Team`,
 		html,
 	}
 }
@@ -123,26 +124,26 @@ function resetPasswordOtpEmail(data: {
 
 	const html = wrapHtml(`
         <div class="header">
-            <h1>Dat lai mat khau</h1>
+            <h1>Đặt lại mật khẩu</h1>
         </div>
         <div class="content">
-            <p>Xin chao <strong>${fullName}</strong>,</p>
-            <p>Ban da yeu cau dat lai mat khau. Vui long su dung ma OTP sau:</p>
+            <p>Xin chào <strong>${fullName}</strong>,</p>
+            <p>Bạn đã yêu cầu đặt lại mật khẩu. Vui lòng sử dụng mã OTP sau:</p>
             <div style="text-align: center; margin: 30px 0;">
                 <div class="otp-code">${otp}</div>
             </div>
             <div class="warning">
-                <strong>Luu y:</strong> Ma OTP se het han sau ${expiresIn}.
+                <strong>Lưu ý:</strong> Mã OTP sẽ hết hạn sau ${expiresIn}.
             </div>
             <div class="info">
-                <strong>Bao mat:</strong> Neu ban khong yeu cau dat lai mat khau, hay bo qua email nay va bao mat tai khoan ngay.
+                <strong>Bảo mật:</strong> Nếu bạn không yêu cầu đặt lại mật khẩu, hãy bỏ qua email này và bảo mật tài khoản ngay.
             </div>
         </div>
     `)
 
 	return {
-		subject: 'Dat lai mat khau - Ma OTP cua ban',
-		text: `Xin chao ${fullName},\n\nMa OTP dat lai mat khau: ${otp}\nMa se het han sau ${expiresIn}.\n\nAuctionHub Team`,
+		subject: 'Đặt lại mật khẩu - Mã OTP của bạn',
+		text: `Xin chào ${fullName},\n\nMã OTP đặt lại mật khẩu: ${otp}\nMã sẽ hết hạn sau ${expiresIn}.\n\nAuctionHub Team`,
 		html,
 	}
 }
@@ -153,21 +154,21 @@ function resetPasswordOtpEmail(data: {
 function confirmResetPasswordEmail(): Email {
 	const html = wrapHtml(`
         <div class="header">
-            <h1>Mat khau da duoc thay doi</h1>
+            <h1>Mật khẩu đã được thay đổi</h1>
         </div>
         <div class="content">
             <div class="success">
-                <p>Mat khau cua ban da duoc thay doi thanh cong.</p>
+                <p>Mật khẩu của bạn đã được thay đổi thành công.</p>
             </div>
             <div class="warning">
-                <strong>Canh bao:</strong> Neu ban khong thuc hien thay doi nay, vui long lien he voi chung toi ngay lap tuc.
+                <strong>Cảnh báo:</strong> Nếu bạn không thực hiện thay đổi này, vui lòng liên hệ với chúng tôi ngay lập tức.
             </div>
         </div>
     `)
 
 	return {
-		subject: 'Mat khau da duoc thay doi thanh cong',
-		text: 'Mat khau cua ban da duoc thay doi thanh cong. Neu ban khong thuc hien thay doi nay, vui long lien he voi chung toi ngay.',
+		subject: 'Mật khẩu đã được thay đổi thành công',
+		text: 'Mật khẩu của bạn đã được thay đổi thành công. Nếu bạn không thực hiện thay đổi này, vui lòng liên hệ với chúng tôi ngay.',
 		html,
 	}
 }
@@ -180,28 +181,28 @@ function signupEmail(name: Name): Email {
 
 	const html = wrapHtml(`
         <div class="header">
-            <h1>Chao mung den AuctionHub!</h1>
+            <h1>Chào mừng đến AuctionHub!</h1>
         </div>
         <div class="content">
-            <p>Xin chao <strong>${fullName}</strong>,</p>
+            <p>Xin chào <strong>${fullName}</strong>,</p>
             <div class="success">
-                <p>Tai khoan cua ban da duoc xac thuc thanh cong!</p>
+                <p>Tài khoản của bạn đã được xác thực thành công!</p>
             </div>
-            <p>Ban da san sang de:</p>
+            <p>Bạn đã sẵn sàng để:</p>
             <ul>
-                <li>Kham pha hang nghin san pham dau gia</li>
-                <li>Tham gia dau gia cac san pham yeu thich</li>
-                <li>Mua ngay voi gia tot nhat</li>
+                <li>Khám phá hàng nghìn sản phẩm đấu giá</li>
+                <li>Tham gia đấu giá các sản phẩm yêu thích</li>
+                <li>Mua ngay với giá tốt nhất</li>
             </ul>
             <div style="text-align: center;">
-                <a href="#" class="btn">Bat dau kham pha ngay</a>
+                <a href="#" class="btn">Bắt đầu khám phá ngay</a>
             </div>
         </div>
     `)
 
 	return {
-		subject: 'Chao mung den AuctionHub!',
-		text: `Xin chao ${fullName}! Tai khoan cua ban da duoc tao thanh cong. Hay bat dau kham pha cac san pham dau gia ngay!`,
+		subject: 'Chào mừng đến AuctionHub!',
+		text: `Xin chào ${fullName}! Tài khoản của bạn đã được tạo thành công. Hãy bắt đầu khám phá các sản phẩm đấu giá ngay!`,
 		html,
 	}
 }
@@ -227,27 +228,27 @@ function bidSuccessBidderEmail(data: BidSuccessData): Email {
 
 	const html = wrapHtml(`
         <div class="header">
-            <h1>Dat gia thanh cong!</h1>
+            <h1>Đặt giá thành công!</h1>
         </div>
         <div class="content">
-            <p>Xin chao <strong>${bidderName}</strong>,</p>
+            <p>Xin chào <strong>${bidderName}</strong>,</p>
             <div class="success">
-                <p>Ban da dat gia thanh cong cho san pham!</p>
+                <p>Bạn đã đặt giá thành công cho sản phẩm!</p>
             </div>
             <div class="product-info">
                 <h3>${productName}</h3>
-                <p>Gia dat cua ban: <span class="price">${formatCurrency(bidAmount)}</span></p>
-                <p>Thoi gian ket thuc: <strong>${formatDate(endTime)}</strong></p>
+                <p>Giá đặt của bạn: <span class="price">${formatCurrency(bidAmount)}</span></p>
+                <p>Thời gian kết thúc: <strong>${formatDate(endTime)}</strong></p>
             </div>
             <div class="info">
-                <strong>Luu y:</strong> Ban co the bi vuot gia bat cu luc nao. Hay theo doi san pham de khong bo lo!
+                <strong>Lưu ý:</strong> Bạn có thể bị vượt giá bất cứ lúc nào. Hãy theo dõi sản phẩm để không bỏ lỡ!
             </div>
         </div>
     `)
 
 	return {
-		subject: `Dat gia thanh cong - ${productName}`,
-		text: `Xin chao ${bidderName},\n\nBan da dat gia ${formatCurrency(bidAmount)} cho san pham "${productName}".\nThoi gian ket thuc: ${formatDate(endTime)}`,
+		subject: `Đặt giá thành công - ${productName}`,
+		text: `Xin chào ${bidderName},\n\nBạn đã đặt giá ${formatCurrency(bidAmount)} cho sản phẩm "${productName}".\nThời gian kết thúc: ${formatDate(endTime)}`,
 		html,
 	}
 }
@@ -260,25 +261,25 @@ function bidSuccessSellerEmail(data: BidSuccessData & { sellerName: string }): E
 
 	const html = wrapHtml(`
         <div class="header">
-            <h1>Co luot dat gia moi!</h1>
+            <h1>Có lượt đặt giá mới!</h1>
         </div>
         <div class="content">
-            <p>Xin chao <strong>${sellerName}</strong>,</p>
+            <p>Xin chào <strong>${sellerName}</strong>,</p>
             <div class="success">
-                <p>San pham cua ban vua nhan duoc luot dat gia moi!</p>
+                <p>Sản phẩm của bạn vừa nhận được lượt đặt giá mới!</p>
             </div>
             <div class="product-info">
                 <h3>${productName}</h3>
-                <p>Nguoi dat: <strong>${bidderName}</strong></p>
-                <p>Gia moi: <span class="price">${formatCurrency(bidAmount)}</span></p>
-                <p>Thoi gian ket thuc: <strong>${formatDate(endTime)}</strong></p>
+                <p>Người đặt: <strong>${bidderName}</strong></p>
+                <p>Giá mới: <span class="price">${formatCurrency(bidAmount)}</span></p>
+                <p>Thời gian kết thúc: <strong>${formatDate(endTime)}</strong></p>
             </div>
         </div>
     `)
 
 	return {
-		subject: `Luot dat gia moi - ${productName}`,
-		text: `Xin chao ${sellerName},\n\nSan pham "${productName}" vua nhan duoc luot dat gia moi tu ${bidderName}.\nGia hien tai: ${formatCurrency(bidAmount)}`,
+		subject: `Lượt đặt giá mới - ${productName}`,
+		text: `Xin chào ${sellerName},\n\nSản phẩm "${productName}" vừa nhận được lượt đặt giá mới từ ${bidderName}.\nGiá hiện tại: ${formatCurrency(bidAmount)}`,
 		html,
 	}
 }
@@ -293,33 +294,35 @@ function bidOutbidEmail(data: {
 	outbidderName: string
 	previousBidderName: string
 	endTime: Date | string
+	productId: string
 }): Email {
-	const { productName, previousBid, newBid, previousBidderName, endTime } = data
+	const { productName, previousBid, newBid, previousBidderName, endTime, productId } = data
+	const productUrl = `${Keys.app.clientURL}/products/${productId}`
 
 	const html = wrapHtml(`
         <div class="header">
-            <h1>Ban da bi vuot gia!</h1>
+            <h1>Bạn đã bị vượt giá!</h1>
         </div>
         <div class="content">
-            <p>Xin chao <strong>${previousBidderName}</strong>,</p>
+            <p>Xin chào <strong>${previousBidderName}</strong>,</p>
             <div class="warning">
-                <p>Co nguoi khac da dat gia cao hon ban cho san pham nay!</p>
+                <p>Có người khác đã đặt giá cao hơn bạn cho sản phẩm này!</p>
             </div>
             <div class="product-info">
                 <h3>${productName}</h3>
-                <p>Gia cua ban: <s style="color: #999;">${formatCurrency(previousBid)}</s></p>
-                <p>Gia hien tai: <span class="price">${formatCurrency(newBid)}</span></p>
-                <p>Thoi gian ket thuc: <strong>${formatDate(endTime)}</strong></p>
+                <p>Giá của bạn: <s style="color: #999;">${formatCurrency(previousBid)}</s></p>
+                <p>Giá hiện tại: <span class="price">${formatCurrency(newBid)}</span></p>
+                <p>Thời gian kết thúc: <strong>${formatDate(endTime)}</strong></p>
             </div>
             <div style="text-align: center;">
-                <a href="#" class="btn">Dat gia ngay</a>
+                <a href="${productUrl}" class="btn">Đặt giá ngay</a>
             </div>
         </div>
     `)
 
 	return {
-		subject: `Ban da bi vuot gia - ${productName}`,
-		text: `Xin chao ${previousBidderName},\n\nBan da bi vuot gia cho san pham "${productName}".\nGia cua ban: ${formatCurrency(previousBid)}\nGia hien tai: ${formatCurrency(newBid)}\nThoi gian ket thuc: ${formatDate(endTime)}`,
+		subject: `Bạn đã bị vượt giá - ${productName}`,
+		text: `Xin chào ${previousBidderName},\n\nBạn đã bị vượt giá cho sản phẩm "${productName}".\nGiá của bạn: ${formatCurrency(previousBid)}\nGiá hiện tại: ${formatCurrency(newBid)}\nThời gian kết thúc: ${formatDate(endTime)}\n\nĐặt giá ngay: ${productUrl}`,
 		html,
 	}
 }
@@ -337,27 +340,27 @@ function bidRejectedEmail(data: {
 
 	const html = wrapHtml(`
         <div class="header">
-            <h1>Luot dat gia bi tu choi</h1>
+            <h1>Lượt đặt giá bị từ chối</h1>
         </div>
         <div class="content">
-            <p>Xin chao <strong>${bidderName}</strong>,</p>
+            <p>Xin chào <strong>${bidderName}</strong>,</p>
             <div class="warning">
-                <p>Rat tiec, luot dat gia cua ban da bi tu choi.</p>
+                <p>Rất tiếc, lượt đặt giá của bạn đã bị từ chối.</p>
             </div>
             <div class="product-info">
                 <h3>${productName}</h3>
-                <p>Gia da dat: ${formatCurrency(bidAmount)}</p>
-                <p><strong>Ly do:</strong> ${reason}</p>
+                <p>Giá đã đặt: ${formatCurrency(bidAmount)}</p>
+                <p><strong>Lý do:</strong> ${reason}</p>
             </div>
             <div class="info">
-                <p>Neu ban co thac mac, vui long lien he voi chung toi de duoc ho tro.</p>
+                <p>Nếu bạn có thắc mắc, vui lòng liên hệ với chúng tôi để được hỗ trợ.</p>
             </div>
         </div>
     `)
 
 	return {
-		subject: `Luot dat gia bi tu choi - ${productName}`,
-		text: `Xin chao ${bidderName},\n\nLuot dat gia ${formatCurrency(bidAmount)} cua ban cho san pham "${productName}" da bi tu choi.\nLy do: ${reason}`,
+		subject: `Lượt đặt giá bị từ chối - ${productName}`,
+		text: `Xin chào ${bidderName},\n\nLượt đặt giá ${formatCurrency(bidAmount)} của bạn cho sản phẩm "${productName}" đã bị từ chối.\nLý do: ${reason}`,
 		html,
 	}
 }
@@ -375,27 +378,27 @@ function auctionEndedNoWinnerEmail(data: {
 
 	const html = wrapHtml(`
         <div class="header">
-            <h1>Dau gia da ket thuc</h1>
+            <h1>Đấu giá đã kết thúc</h1>
         </div>
         <div class="content">
-            <p>Xin chao <strong>${sellerName}</strong>,</p>
+            <p>Xin chào <strong>${sellerName}</strong>,</p>
             <div class="highlight">
-                <p>Phien dau gia san pham cua ban da ket thuc nhung khong co nguoi thang.</p>
+                <p>Phiên đấu giá sản phẩm của bạn đã kết thúc nhưng không có người thắng.</p>
             </div>
             <div class="product-info">
                 <h3>${productName}</h3>
-                <p>Gia khoi diem: ${formatCurrency(startPrice)}</p>
-                <p>Ket thuc luc: ${formatDate(endTime)}</p>
+                <p>Giá khởi điểm: ${formatCurrency(startPrice)}</p>
+                <p>Kết thúc lúc: ${formatDate(endTime)}</p>
             </div>
             <div class="info">
-                <p>Ban co the dang lai san pham hoac dieu chinh gia khoi diem de thu hut nguoi mua.</p>
+                <p>Bạn có thể đăng lại sản phẩm hoặc điều chỉnh giá khởi điểm để thu hút người mua.</p>
             </div>
         </div>
     `)
 
 	return {
-		subject: `Dau gia ket thuc - Khong co nguoi thang - ${productName}`,
-		text: `Xin chao ${sellerName},\n\nPhien dau gia san pham "${productName}" da ket thuc nhung khong co nguoi thang.`,
+		subject: `Đấu giá kết thúc - Không có người thắng - ${productName}`,
+		text: `Xin chào ${sellerName},\n\nPhiên đấu giá sản phẩm "${productName}" đã kết thúc nhưng không có người thắng.`,
 		html,
 	}
 }
@@ -414,28 +417,28 @@ function auctionEndedWinnerEmail(data: {
 
 	const html = wrapHtml(`
         <div class="header">
-            <h1>Chuc mung! Ban da thang dau gia!</h1>
+            <h1>Chúc mừng! Bạn đã thắng đấu giá!</h1>
         </div>
         <div class="content">
-            <p>Xin chao <strong>${winnerName}</strong>,</p>
+            <p>Xin chào <strong>${winnerName}</strong>,</p>
             <div class="success">
-                <p>Chuc mung! Ban la nguoi thang dau gia!</p>
+                <p>Chúc mừng! Bạn là người thắng đấu giá!</p>
             </div>
             <div class="product-info">
                 <h3>${productName}</h3>
-                <p>Gia thang: <span class="price">${formatCurrency(winningBid)}</span></p>
-                <p>Nguoi ban: <strong>${sellerName}</strong></p>
-                <p>Ket thuc luc: ${formatDate(endTime)}</p>
+                <p>Giá thắng: <span class="price">${formatCurrency(winningBid)}</span></p>
+                <p>Người bán: <strong>${sellerName}</strong></p>
+                <p>Kết thúc lúc: ${formatDate(endTime)}</p>
             </div>
             <div class="info">
-                <p><strong>Buoc tiep theo:</strong> Vui long lien he voi nguoi ban de hoan tat giao dich va thanh toan.</p>
+                <p><strong>Bước tiếp theo:</strong> Vui lòng liên hệ với người bán để hoàn tất giao dịch và thanh toán.</p>
             </div>
         </div>
     `)
 
 	return {
-		subject: `Chuc mung! Ban da thang dau gia - ${productName}`,
-		text: `Xin chao ${winnerName},\n\nChuc mung! Ban da thang dau gia san pham "${productName}" voi gia ${formatCurrency(winningBid)}.\nVui long lien he nguoi ban ${sellerName} de hoan tat giao dich.`,
+		subject: `Chúc mừng! Bạn đã thắng đấu giá - ${productName}`,
+		text: `Xin chào ${winnerName},\n\nChúc mừng! Bạn đã thắng đấu giá sản phẩm "${productName}" với giá ${formatCurrency(winningBid)}.\nVui lòng liên hệ người bán ${sellerName} để hoàn tất giao dịch.`,
 		html,
 	}
 }
@@ -455,29 +458,29 @@ function auctionEndedSellerEmail(data: {
 
 	const html = wrapHtml(`
         <div class="header">
-            <h1>Dau gia ket thuc thanh cong!</h1>
+            <h1>Đấu giá kết thúc thành công!</h1>
         </div>
         <div class="content">
-            <p>Xin chao <strong>${sellerName}</strong>,</p>
+            <p>Xin chào <strong>${sellerName}</strong>,</p>
             <div class="success">
-                <p>Phien dau gia san pham cua ban da ket thuc thanh cong!</p>
+                <p>Phiên đấu giá sản phẩm của bạn đã kết thúc thành công!</p>
             </div>
             <div class="product-info">
                 <h3>${productName}</h3>
-                <p>Gia thang: <span class="price">${formatCurrency(winningBid)}</span></p>
-                <p>Nguoi thang: <strong>${winnerName}</strong></p>
+                <p>Giá thắng: <span class="price">${formatCurrency(winningBid)}</span></p>
+                <p>Người thắng: <strong>${winnerName}</strong></p>
                 <p>Email: <a href="mailto:${winnerEmail}">${winnerEmail}</a></p>
-                <p>Ket thuc luc: ${formatDate(endTime)}</p>
+                <p>Kết thúc lúc: ${formatDate(endTime)}</p>
             </div>
             <div class="info">
-                <p><strong>Buoc tiep theo:</strong> Vui long lien he voi nguoi thang de thoa thuan viec giao hang va thanh toan.</p>
+                <p><strong>Bước tiếp theo:</strong> Vui lòng liên hệ với người thắng để thỏa thuận việc giao hàng và thanh toán.</p>
             </div>
         </div>
     `)
 
 	return {
-		subject: `Dau gia ket thuc - ${productName}`,
-		text: `Xin chao ${sellerName},\n\nPhien dau gia san pham "${productName}" da ket thuc.\nNguoi thang: ${winnerName} (${winnerEmail})\nGia thang: ${formatCurrency(winningBid)}`,
+		subject: `Đấu giá kết thúc - ${productName}`,
+		text: `Xin chào ${sellerName},\n\nPhiên đấu giá sản phẩm "${productName}" đã kết thúc.\nNgười thắng: ${winnerName} (${winnerEmail})\nGiá thắng: ${formatCurrency(winningBid)}`,
 		html,
 	}
 }
@@ -499,30 +502,30 @@ function questionAskedEmail(data: {
 
 	const html = wrapHtml(`
         <div class="header">
-            <h1>Co cau hoi moi!</h1>
+            <h1>Có câu hỏi mới!</h1>
         </div>
         <div class="content">
-            <p>Xin chao <strong>${sellerName}</strong>,</p>
+            <p>Xin chào <strong>${sellerName}</strong>,</p>
             <div class="highlight">
-                <p>Ban co cau hoi moi ve san pham dau gia!</p>
+                <p>Bạn có câu hỏi mới về sản phẩm đấu giá!</p>
             </div>
             <div class="product-info">
                 <h3>${productName}</h3>
-                <p><strong>Nguoi hoi:</strong> ${buyerName}</p>
-                <p><strong>Cau hoi:</strong></p>
+                <p><strong>Người hỏi:</strong> ${buyerName}</p>
+                <p><strong>Câu hỏi:</strong></p>
                 <blockquote style="border-left: 3px solid #667eea; padding-left: 15px; margin: 15px 0; font-style: italic;">
                     "${question}"
                 </blockquote>
             </div>
             <div style="text-align: center;">
-                <a href="#" class="btn">Tra loi ngay</a>
+                <a href="#" class="btn">Trả lời ngay</a>
             </div>
         </div>
     `)
 
 	return {
-		subject: `Cau hoi moi ve san pham - ${productName}`,
-		text: `Xin chao ${sellerName},\n\nBan co cau hoi moi tu ${buyerName} ve san pham "${productName}":\n"${question}"`,
+		subject: `Câu hỏi mới về sản phẩm - ${productName}`,
+		text: `Xin chào ${sellerName},\n\nBạn có câu hỏi mới từ ${buyerName} về sản phẩm "${productName}":\n"${question}"`,
 		html,
 	}
 }
@@ -541,20 +544,20 @@ function questionAnsweredEmail(data: {
 
 	const html = wrapHtml(`
         <div class="header">
-            <h1>Nguoi ban da tra loi!</h1>
+            <h1>Người bán đã trả lời!</h1>
         </div>
         <div class="content">
-            <p>Xin chao <strong>${recipientName}</strong>,</p>
+            <p>Xin chào <strong>${recipientName}</strong>,</p>
             <div class="info">
-                <p>Nguoi ban da tra loi cau hoi ve san pham ban quan tam!</p>
+                <p>Người bán đã trả lời câu hỏi về sản phẩm bạn quan tâm!</p>
             </div>
             <div class="product-info">
                 <h3>${productName}</h3>
-                <p><strong>Cau hoi:</strong></p>
+                <p><strong>Câu hỏi:</strong></p>
                 <blockquote style="border-left: 3px solid #667eea; padding-left: 15px; margin: 15px 0; font-style: italic;">
                     "${question}"
                 </blockquote>
-                <p><strong>Tra loi tu ${sellerName}:</strong></p>
+                <p><strong>Trả lời từ ${sellerName}:</strong></p>
                 <blockquote style="border-left: 3px solid #28a745; padding-left: 15px; margin: 15px 0; background: #f0fff0; padding: 15px;">
                     "${answer}"
                 </blockquote>
@@ -563,8 +566,54 @@ function questionAnsweredEmail(data: {
     `)
 
 	return {
-		subject: `Cau hoi da duoc tra loi - ${productName}`,
-		text: `Xin chao ${recipientName},\n\nNguoi ban ${sellerName} da tra loi cau hoi ve san pham "${productName}":\n\nCau hoi: "${question}"\nTra loi: "${answer}"`,
+		subject: `Câu hỏi đã được trả lời - ${productName}`,
+		text: `Xin chào ${recipientName},\n\nNgười bán ${sellerName} đã trả lời câu hỏi về sản phẩm "${productName}":\n\nCâu hỏi: "${question}"\nTrả lời: "${answer}"`,
+		html,
+	}
+}
+
+// ============================================
+// PRODUCT UPDATE EMAIL TEMPLATES
+// ============================================
+
+/**
+ * Product Description Updated - Notify Bidders
+ */
+function productDescriptionUpdatedEmail(data: {
+	productName: string
+	sellerName: string
+	bidderName: string
+	productId: string
+	updatedAt: Date | string
+}): Email {
+	const { productName, sellerName, bidderName, productId, updatedAt } = data
+	const productUrl = `${Keys.app.clientURL}/products/${productId}`
+
+	const html = wrapHtml(`
+        <div class="header">
+            <h1>Mô tả sản phẩm đã được cập nhật!</h1>
+        </div>
+        <div class="content">
+            <p>Xin chào <strong>${bidderName}</strong>,</p>
+            <div class="info">
+                <p>Người bán <strong>${sellerName}</strong> đã cập nhật mô tả cho sản phẩm bạn đang đấu giá!</p>
+            </div>
+            <div class="product-info">
+                <h3>${productName}</h3>
+                <p>Cập nhật lúc: <strong>${formatDate(updatedAt)}</strong></p>
+            </div>
+            <div class="highlight">
+                <p><strong>Lưu ý:</strong> Vui lòng xem lại mô tả sản phẩm để nắm bắt thông tin mới nhất trước khi tiếp tục đấu giá.</p>
+            </div>
+            <div style="text-align: center;">
+                <a href="${productUrl}" class="btn">Xem sản phẩm</a>
+            </div>
+        </div>
+    `)
+
+	return {
+		subject: `Mô tả sản phẩm đã cập nhật - ${productName}`,
+		text: `Xin chào ${bidderName},\n\nNgười bán ${sellerName} đã cập nhật mô tả cho sản phẩm "${productName}".\nCập nhật lúc: ${formatDate(updatedAt)}\n\nXem sản phẩm: ${productUrl}`,
 		html,
 	}
 }
@@ -676,6 +725,11 @@ export default function (type: string, data: any): Email | null {
 
 		case 'question-answered':
 			message = questionAnsweredEmail(data)
+			break
+
+		// Product update templates
+		case 'product-description-updated':
+			message = productDescriptionUpdatedEmail(data)
 			break
 
 		default:

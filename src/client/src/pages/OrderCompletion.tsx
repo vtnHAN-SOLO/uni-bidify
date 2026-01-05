@@ -481,7 +481,6 @@ export default function OrderCompletion() {
 												value={shippingAddress}
 												onChange={(e) => setShippingAddress(e.target.value)}
 												placeholder="Nhập địa chỉ giao hàng đầy đủ..."
-												required
 											/>
 										</div>
 										<div className="space-y-2">
@@ -527,7 +526,6 @@ export default function OrderCompletion() {
 												value={shippingInvoice}
 												onChange={(e) => setShippingInvoice(e.target.value)}
 												placeholder="Nhập mã vận đơn..."
-												required
 											/>
 										</div>
 										<Button

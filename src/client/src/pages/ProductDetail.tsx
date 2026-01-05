@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input/input'
 import { Textarea } from '@/components/ui/input/textarea'
 import { Avatar, AvatarFallback } from '@/components/ui/data-display/avatar'
 import { Label } from '@/components/ui/input/label'
+import { HtmlContent } from '@/components/ui/data-display/html-content'
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -47,6 +48,7 @@ import { useToast } from '@/hooks/use-toast'
 import {
 	fetchProductDetail,
 	fetchRelatedProducts,
+	fetchAuctionSettings,
 } from '@/services/api/products.api'
 import {
 	placeBid,
@@ -130,6 +132,12 @@ const ProductDetail = () => {
 		queryKey: ['questions', id],
 		queryFn: () => getProductQuestions(id!),
 		enabled: !!id,
+	})
+
+	// Fetch auction settings (for auto-extend display)
+	const { data: auctionSettings } = useQuery({
+		queryKey: ['auction-settings'],
+		queryFn: fetchAuctionSettings,
 	})
 
 	// State management
@@ -335,7 +343,24 @@ const ProductDetail = () => {
 			})
 			return
 		}
-		if (!id || !question.trim()) return
+		// Custom validation
+		if (!question.trim()) {
+			toast({
+				title: 'Lỗi',
+				description: 'Vui lòng nhập câu hỏi',
+				variant: 'destructive',
+			})
+			return
+		}
+		if (question.trim().length < 10) {
+			toast({
+				title: 'Lỗi',
+				description: 'Câu hỏi phải có ít nhất 10 ký tự',
+				variant: 'destructive',
+			})
+			return
+		}
+		if (!id) return
 		askQuestionMutation.mutate({ productId: id, question: question.trim() })
 	}
 
@@ -503,9 +528,7 @@ const ProductDetail = () => {
 								</CardTitle>
 							</CardHeader>
 							<CardContent>
-								<div className="prose prose-sm max-w-none whitespace-pre-wrap">
-									{product.description}
-								</div>
+								<HtmlContent html={product.description} />
 							</CardContent>
 						</Card>
 					</div>
@@ -822,9 +845,7 @@ const ProductDetail = () => {
 
 										{product.autoExtend && (
 											<p className="text-xs text-muted-foreground text-center">
-												⚡ Sản phẩm có tự động gia hạn 10
-												phút nếu có lượt đấu giá mới trước
-												khi kết thúc 5 phút
+												⚡ Sản phẩm có tự động gia hạn {auctionSettings?.extensionMinutes ?? 10} phút nếu có lượt đấu giá mới trước khi kết thúc {auctionSettings?.triggerMinutes ?? 5} phút
 											</p>
 										)}
 									</CardContent>
@@ -845,9 +866,7 @@ const ProductDetail = () => {
 									</CardTitle>
 								</CardHeader>
 								<CardContent>
-									<div className="prose prose-sm max-w-none whitespace-pre-wrap">
-										{product.description}
-									</div>
+									<HtmlContent html={product.description} />
 								</CardContent>
 							</Card>
 
@@ -1004,8 +1023,6 @@ const ProductDetail = () => {
 														setQuestion(e.target.value)
 													}
 													placeholder="Nhập câu hỏi của bạn (ít nhất 10 ký tự)..."
-													required
-													minLength={10}
 												/>
 												<Button
 													type="submit"

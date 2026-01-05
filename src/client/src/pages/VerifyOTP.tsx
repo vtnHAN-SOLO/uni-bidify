@@ -36,6 +36,17 @@ export default function VerifyOTP() {
 
 	const handleVerifyOtp = async (e: React.FormEvent) => {
 		e.preventDefault()
+
+		// Custom validation
+		if (!otp.trim()) {
+			toast.error('Vui lòng nhập mã OTP')
+			return
+		}
+		if (otp.length !== 6 || !/^\d{6}$/.test(otp)) {
+			toast.error('Mã OTP phải là 6 chữ số')
+			return
+		}
+
 		setLoading(true)
 
 		try {
@@ -109,7 +120,6 @@ export default function VerifyOTP() {
 										)
 									}
 									maxLength={6}
-									required
 									autoFocus
 								/>
 							</div>

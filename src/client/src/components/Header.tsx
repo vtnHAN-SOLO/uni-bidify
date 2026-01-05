@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
 	Search,
 	Heart,
@@ -11,10 +11,31 @@ import {
 	Package,
 	Gavel,
 	Settings,
+	Loader2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/input/button'
 import { Input } from '@/components/ui/input/input'
 import { Link, useNavigate } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
+import { searchProducts } from '@/services/api/products.api'
+import { formatCompactPrice } from '@/lib/utils'
+
+// Custom debounce hook
+function useDebounce<T>(value: T, delay: number): T {
+	const [debouncedValue, setDebouncedValue] = useState<T>(value)
+
+	useEffect(() => {
+		const timer = setTimeout(() => {
+			setDebouncedValue(value)
+		}, delay)
+
+		return () => {
+			clearTimeout(timer)
+		}
+	}, [value, delay])
+
+	return debouncedValue
+}
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -31,17 +52,64 @@ export const Header = () => {
 	const { user, isAuthenticated, logout } = useAuth()
 	const navigate = useNavigate()
 	const { categories, loading: categoriesLoading } = useCategories()
-	const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
+	const [expandedCategory, setExpandedCategory] = useState<string | null>(
+		null
+	)
 	const [searchQuery, setSearchQuery] = useState('')
+	const [showSearchDropdown, setShowSearchDropdown] = useState(false)
+	const searchContainerRef = useRef<HTMLDivElement>(null)
+
+	// Debounce search query for dropdown (300ms delay)
+	const debouncedSearchQuery = useDebounce(searchQuery, 300)
+
+	// Search products for dropdown
+	const { data: searchResult, isLoading: isSearching } = useQuery({
+		queryKey: ['headerSearch', debouncedSearchQuery],
+		queryFn: () =>
+			searchProducts({
+				q: debouncedSearchQuery.trim(),
+				limit: 5,
+				sort: 'endTime',
+				order: 'asc',
+			}),
+		enabled: debouncedSearchQuery.trim().length > 0,
+	})
+
+	const searchProducts_results = searchResult?.data?.products || []
+
+	// Close dropdown when clicking outside
+	useEffect(() => {
+		const handleClickOutside = (event: MouseEvent) => {
+			if (
+				searchContainerRef.current &&
+				!searchContainerRef.current.contains(event.target as Node)
+			) {
+				setShowSearchDropdown(false)
+			}
+		}
+
+		document.addEventListener('mousedown', handleClickOutside)
+		return () => {
+			document.removeEventListener('mousedown', handleClickOutside)
+		}
+	}, [])
 
 	// Handle search form submit
 	const handleSearch = (e: React.FormEvent) => {
 		e.preventDefault()
+		setShowSearchDropdown(false)
 		if (searchQuery.trim()) {
 			navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`)
 		} else {
 			navigate('/search')
 		}
+	}
+
+	// Handle product click from dropdown
+	const handleProductClick = (productId: string) => {
+		setShowSearchDropdown(false)
+		setSearchQuery('')
+		navigate(`/products/${productId}`)
 	}
 
 	// Get user initials for avatar
@@ -177,22 +245,100 @@ export const Header = () => {
 
 				{/* Search & User Actions */}
 				<div className="flex flex-1 items-center justify-end space-x-4">
-					{/* Search Bar */}
-					<form
-						onSubmit={handleSearch}
-						className="hidden w-full max-w-sm md:flex items-center space-x-2"
+					{/* Search Bar with Dropdown */}
+					<div
+						ref={searchContainerRef}
+						className="hidden w-full max-w-sm md:block relative"
 					>
-						<Input
-							type="search"
-							placeholder="Tìm kiếm sản phẩm đấu giá..."
-							className="h-9"
-							value={searchQuery}
-							onChange={(e) => setSearchQuery(e.target.value)}
-						/>
-						<Button type="submit" size="sm" className="h-9">
-							<Search className="h-4 w-4" />
-						</Button>
-					</form>
+						<form
+							onSubmit={handleSearch}
+							className="flex items-center space-x-2"
+						>
+							<Input
+								type="search"
+								placeholder="Tìm kiếm sản phẩm đấu giá..."
+								className="h-9"
+								value={searchQuery}
+								onChange={(e) => {
+									setSearchQuery(e.target.value)
+									setShowSearchDropdown(true)
+								}}
+								onFocus={() => setShowSearchDropdown(true)}
+							/>
+							<Button type="submit" size="sm" className="h-9">
+								<Search className="h-4 w-4" />
+							</Button>
+						</form>
+
+						{/* Search Dropdown */}
+						{showSearchDropdown &&
+							debouncedSearchQuery.trim().length > 0 && (
+								<div className="absolute top-full left-0 right-0 mt-1 bg-background border rounded-md shadow-lg z-50 max-h-[400px] overflow-y-auto">
+									{isSearching ? (
+										<div className="flex items-center justify-center py-4">
+											<Loader2 className="h-5 w-5 animate-spin text-primary" />
+											<span className="ml-2 text-sm text-muted-foreground">
+												Đang tìm kiếm...
+											</span>
+										</div>
+									) : searchProducts_results.length > 0 ? (
+										<>
+											{searchProducts_results.map(
+												(product) => (
+													<button
+														key={product._id}
+														onClick={() =>
+															handleProductClick(
+																product._id
+															)
+														}
+														className="w-full flex items-center gap-3 p-3 hover:bg-accent transition-colors text-left"
+													>
+														<img
+															src={
+																product
+																	.images[0] ||
+																'/placeholder.jpg'
+															}
+															alt={product.name}
+															className="w-12 h-12 object-cover rounded"
+														/>
+														<div className="flex-1 min-w-0">
+															<p className="text-sm font-medium truncate">
+																{product.name}
+															</p>
+															<p className="text-sm text-primary font-semibold">
+																{formatCompactPrice(
+																	product.currentPrice
+																)}
+															</p>
+															{product.categoryName && (
+																<p className="text-xs text-muted-foreground">
+																	{
+																		product.categoryName
+																	}
+																</p>
+															)}
+														</div>
+													</button>
+												)
+											)}
+											<button
+												onClick={handleSearch as any}
+												className="w-full p-3 text-sm text-primary hover:bg-accent transition-colors border-t"
+											>
+												Xem tất cả kết quả cho "
+												{debouncedSearchQuery}"
+											</button>
+										</>
+									) : (
+										<div className="p-4 text-center text-sm text-muted-foreground">
+											Không tìm thấy sản phẩm nào
+										</div>
+									)}
+								</div>
+							)}
+					</div>
 
 					<div className="flex items-center gap-2">
 						{isAuthenticated ? (
@@ -263,18 +409,30 @@ export const Header = () => {
 										{user?.role === 'ROLE SELLER' && (
 											<>
 												<DropdownMenuItem
-													onClick={() => navigate('/seller/products')}
+													onClick={() =>
+														navigate(
+															'/seller/products'
+														)
+													}
 													className="cursor-pointer"
 												>
 													<Package className="mr-2 h-4 w-4" />
-													<span>Quản lý sản phẩm</span>
+													<span>
+														Quản lý sản phẩm
+													</span>
 												</DropdownMenuItem>
 												<DropdownMenuItem
-													onClick={() => navigate('/seller/create-product')}
+													onClick={() =>
+														navigate(
+															'/seller/create-product'
+														)
+													}
 													className="cursor-pointer"
 												>
 													<Gavel className="mr-2 h-4 w-4" />
-													<span>Đăng sản phẩm mới</span>
+													<span>
+														Đăng sản phẩm mới
+													</span>
 												</DropdownMenuItem>
 											</>
 										)}
@@ -282,7 +440,9 @@ export const Header = () => {
 										{/* Admin-specific menu items */}
 										{user?.role === 'ROLE ADMIN' && (
 											<DropdownMenuItem
-												onClick={() => navigate('/admin')}
+												onClick={() =>
+													navigate('/admin')
+												}
 												className="cursor-pointer"
 											>
 												<Settings className="mr-2 h-4 w-4" />
