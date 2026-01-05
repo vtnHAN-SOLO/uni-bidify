@@ -2,12 +2,15 @@ import express, { Request, Response } from 'express'
 import Product from '../../Models/Product.js'
 import Category from '../../Models/Category.js'
 import Settings from '../../Models/Settings.js'
+import Bid from '../../Models/Bid.js'
+import User from '../../Models/User.js'
 import Auth from '../../Middleware/Auth.js'
 import { ROLES } from '../../Data/Constants/index.js'
 import {
 	checkCanCreateProduct,
 	checkSellerAccess,
 } from '../../Middleware/SellerPermission.js'
+import MailService from '../../Services/MailService/index.js'
 
 const router = express.Router()
 
@@ -921,6 +924,42 @@ router.put(
 
 			product.description = product.description + appendedContent
 			await product.save()
+
+			// ==================== SEND EMAIL TO ALL BIDDERS ====================
+			try {
+				// Get seller info
+				const seller = await User.findById(product.seller).lean()
+
+				// Get all unique bidders for this product
+				const bidderIds = await Bid.find({ product: id })
+					.distinct('bidder')
+					.lean()
+
+				if (seller && bidderIds.length > 0) {
+					// Get all bidder info
+					const bidders = await User.find({ _id: { $in: bidderIds } }).lean()
+
+					const sellerName = `${seller.firstName} ${seller.lastName}`
+
+					// Send email to each bidder
+					for (const bidder of bidders) {
+						MailService.sendMail(bidder.email, 'product-description-updated', {
+							productName: product.name,
+							sellerName,
+							bidderName: `${bidder.firstName} ${bidder.lastName}`,
+							productId: id,
+							updatedAt: now,
+						}).catch((err) =>
+							console.error(`❌ Failed to send description update email to ${bidder.email}:`, err)
+						)
+					}
+
+					console.log(`✅ Sent description update emails to ${bidders.length} bidder(s) for product ${id}`)
+				}
+			} catch (emailError) {
+				console.error('❌ Error sending description update emails:', emailError)
+				// Don't fail the update if email fails
+			}
 
 			return res.json({
 				success: true,
