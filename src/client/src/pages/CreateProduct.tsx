@@ -254,7 +254,6 @@ export default function CreateProduct() {
 									placeholder="Ví dụ: iPhone 15 Pro Max 256GB"
 									value={name}
 									onChange={(e) => setName(e.target.value)}
-									required
 								/>
 							</div>
 
@@ -400,8 +399,6 @@ export default function CreateProduct() {
 										placeholder="1000000"
 										value={startPrice}
 										onChange={(e) => setStartPrice(e.target.value)}
-										min="1000"
-										required
 									/>
 								</div>
 								<div className="space-y-2">
@@ -412,8 +409,6 @@ export default function CreateProduct() {
 										placeholder="100000"
 										value={priceStep}
 										onChange={(e) => setPriceStep(e.target.value)}
-										min="1000"
-										required
 									/>
 								</div>
 							</div>
@@ -428,7 +423,6 @@ export default function CreateProduct() {
 									placeholder="15000000"
 									value={buyNowPrice}
 									onChange={(e) => setBuyNowPrice(e.target.value)}
-									min={startPrice ? Number(startPrice) + 1 : 1}
 								/>
 								<p className="text-sm text-muted-foreground">
 									Để trống nếu không muốn có tùy chọn mua ngay
@@ -442,8 +436,6 @@ export default function CreateProduct() {
 									type="datetime-local"
 									value={endTime}
 									onChange={(e) => setEndTime(e.target.value)}
-									min={new Date().toISOString().slice(0, 16)}
-									required
 								/>
 							</div>
 

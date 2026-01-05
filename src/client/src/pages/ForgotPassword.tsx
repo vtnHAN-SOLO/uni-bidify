@@ -40,6 +40,17 @@ export default function ForgotPassword() {
 	// Step 1: Request OTP
 	const handleRequestOtp = async (e: React.FormEvent) => {
 		e.preventDefault()
+
+		// Custom validation
+		if (!email.trim()) {
+			toast.error('Vui lòng nhập email')
+			return
+		}
+		if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+			toast.error('Email không hợp lệ')
+			return
+		}
+
 		setLoading(true)
 
 		try {
@@ -69,6 +80,17 @@ export default function ForgotPassword() {
 	// Step 2: Verify OTP
 	const handleVerifyOtp = async (e: React.FormEvent) => {
 		e.preventDefault()
+
+		// Custom validation
+		if (!otp.trim()) {
+			toast.error('Vui lòng nhập mã OTP')
+			return
+		}
+		if (otp.length !== 6 || !/^\d{6}$/.test(otp)) {
+			toast.error('Mã OTP phải là 6 chữ số')
+			return
+		}
+
 		setLoading(true)
 
 		try {
@@ -91,13 +113,21 @@ export default function ForgotPassword() {
 	const handleResetPassword = async (e: React.FormEvent) => {
 		e.preventDefault()
 
-		if (newPassword !== confirmPassword) {
-			toast.error('Mật khẩu xác nhận không khớp!')
+		// Custom validation
+		if (!newPassword) {
+			toast.error('Vui lòng nhập mật khẩu mới')
 			return
 		}
-
 		if (newPassword.length < 6) {
-			toast.error('Mật khẩu phải có ít nhất 6 ký tự!')
+			toast.error('Mật khẩu phải có ít nhất 6 ký tự')
+			return
+		}
+		if (!confirmPassword) {
+			toast.error('Vui lòng xác nhận mật khẩu')
+			return
+		}
+		if (newPassword !== confirmPassword) {
+			toast.error('Mật khẩu xác nhận không khớp')
 			return
 		}
 
@@ -162,14 +192,13 @@ export default function ForgotPassword() {
 									<Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
 									<Input
 										id="email"
-										type="email"
+										type="text"
 										placeholder="email@example.com"
 										className="pl-10"
 										value={email}
 										onChange={(e) =>
 											setEmail(e.target.value)
 										}
-										required
 									/>
 								</div>
 								<p className="text-sm text-gray-500">
@@ -222,7 +251,6 @@ export default function ForgotPassword() {
 											)
 										}
 										maxLength={6}
-										required
 										autoFocus
 									/>
 								</div>
@@ -276,7 +304,6 @@ export default function ForgotPassword() {
 										onChange={(e) =>
 											setNewPassword(e.target.value)
 										}
-										required
 										autoFocus
 									/>
 								</div>
@@ -297,7 +324,6 @@ export default function ForgotPassword() {
 										onChange={(e) =>
 											setConfirmPassword(e.target.value)
 										}
-										required
 									/>
 								</div>
 							</div>

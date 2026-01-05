@@ -16,7 +16,6 @@ import {
 	TabsList,
 	TabsTrigger,
 } from '../components/ui/navigation/tabs'
-import { Checkbox } from '../components/ui/input/checkbox'
 import { useAuth } from '@/contexts/AuthContext'
 import { Loader2, ArrowLeft } from 'lucide-react'
 import { toast } from 'sonner'
@@ -34,7 +33,6 @@ export default function Auth() {
 	const [loginEmail, setLoginEmail] = useState('')
 	const [loginPassword, setLoginPassword] = useState('')
 	const [loginLoading, setLoginLoading] = useState(false)
-	const [rememberMe, setRememberMe] = useState(false)
 
 	// Register state
 	const [registerName, setRegisterName] = useState('')
@@ -53,6 +51,21 @@ export default function Auth() {
 
 	const handleLogin = async (e: React.FormEvent) => {
 		e.preventDefault()
+
+		// Custom validation
+		if (!loginEmail.trim()) {
+			toast.error('Vui lòng nhập email')
+			return
+		}
+		if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(loginEmail)) {
+			toast.error('Email không hợp lệ')
+			return
+		}
+		if (!loginPassword) {
+			toast.error('Vui lòng nhập mật khẩu')
+			return
+		}
+
 		setLoginLoading(true)
 
 		try {
@@ -71,17 +84,44 @@ export default function Auth() {
 
 	const handleRegister = async (e: React.FormEvent) => {
 		e.preventDefault()
+
+		// Custom validation
+		if (!registerName.trim()) {
+			toast.error('Vui lòng nhập họ và tên')
+			return
+		}
+		// Tách fullName thành firstName và lastName
+		const nameParts = registerName.trim().split(' ')
+		if (nameParts.length < 2) {
+			toast.error(
+				'Vui lòng nhập đầy đủ họ và tên (ví dụ: Nguyen Van A)'
+			)
+			return
+		}
+		if (!registerAddress.trim()) {
+			toast.error('Vui lòng nhập địa chỉ')
+			return
+		}
+		if (!registerEmail.trim()) {
+			toast.error('Vui lòng nhập email')
+			return
+		}
+		if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(registerEmail)) {
+			toast.error('Email không hợp lệ')
+			return
+		}
+		if (!registerPassword) {
+			toast.error('Vui lòng nhập mật khẩu')
+			return
+		}
+		if (registerPassword.length < 6) {
+			toast.error('Mật khẩu phải có ít nhất 6 ký tự')
+			return
+		}
+
 		setRegisterLoading(true)
 
 		try {
-			// Tách fullName thành firstName và lastName
-			const nameParts = registerName.trim().split(' ')
-			if (nameParts.length < 2) {
-				toast.error(
-					'Vui lòng nhập đầy đủ họ và tên (ví dụ: Nguyen Van A)'
-				)
-				return
-			}
 			if (!isReady) {
 				toast.error('reCAPTCHA chưa sẵn sàng, vui lòng thử lại')
 				return
@@ -121,6 +161,17 @@ export default function Auth() {
 
 	const handleVerifyOtp = async (e: React.FormEvent) => {
 		e.preventDefault()
+
+		// Custom validation
+		if (!otp.trim()) {
+			toast.error('Vui lòng nhập mã OTP')
+			return
+		}
+		if (otp.length !== 6 || !/^\d{6}$/.test(otp)) {
+			toast.error('Mã OTP phải là 6 chữ số')
+			return
+		}
+
 		setOtpLoading(true)
 
 		try {
@@ -165,7 +216,6 @@ export default function Auth() {
 									value={otp}
 									onChange={(e) => setOtp(e.target.value)}
 									maxLength={6}
-									required
 								/>
 							</div>
 
@@ -250,13 +300,12 @@ export default function Auth() {
 									<Label htmlFor="login-email">Email</Label>
 									<Input
 										id="login-email"
-										type="email"
+										type="text"
 										placeholder="ten@example.com"
 										value={loginEmail}
 										onChange={(e) =>
 											setLoginEmail(e.target.value)
 										}
-										required
 									/>
 								</div>
 
@@ -272,7 +321,6 @@ export default function Auth() {
 										onChange={(e) =>
 											setLoginPassword(e.target.value)
 										}
-										required
 									/>
 									{/* ✅ NEW: Forgot Password Link */}
 									<div className="flex items-center justify-end mt-1">
@@ -282,26 +330,6 @@ export default function Auth() {
 										>
 											Quên mật khẩu?
 										</Link>
-									</div>
-								</div>
-
-								<div className="flex items-center justify-between">
-									<div className="flex items-center space-x-2">
-										<Checkbox
-											id="remember"
-											checked={rememberMe}
-											onCheckedChange={(checked) =>
-												setRememberMe(
-													checked as boolean
-												)
-											}
-										/>
-										<Label
-											htmlFor="remember"
-											className="text-sm font-normal"
-										>
-											Ghi nhớ đăng nhập
-										</Label>
 									</div>
 								</div>
 
@@ -363,7 +391,6 @@ export default function Auth() {
 										onChange={(e) =>
 											setRegisterName(e.target.value)
 										}
-										required
 									/>
 								</div>
 								<div className="space-y-2">
@@ -378,7 +405,6 @@ export default function Auth() {
 										onChange={(e) =>
 											setRegisterAddress(e.target.value)
 										}
-										required
 									/>
 								</div>
 
@@ -388,13 +414,12 @@ export default function Auth() {
 									</Label>
 									<Input
 										id="register-email"
-										type="email"
+										type="text"
 										placeholder="ten@example.com"
 										value={registerEmail}
 										onChange={(e) =>
 											setRegisterEmail(e.target.value)
 										}
-										required
 									/>
 								</div>
 
@@ -410,7 +435,6 @@ export default function Auth() {
 										onChange={(e) =>
 											setRegisterPassword(e.target.value)
 										}
-										required
 									/>
 								</div>
 
