@@ -1,4 +1,4 @@
-# AuctionHub - Online Auction Platform
+# Bidify - Online Auction Platform
 
 Web Application Programming - Final Project
 
@@ -17,7 +17,7 @@ Web Application Programming - Final Project
 
 ## Giới thiệu
 
-AuctionHub là nền tảng đấu giá trực tuyến với các tính năng:
+Bidify là nền tảng đấu giá trực tuyến với các tính năng:
 
 - Đăng ký/Đăng nhập với xác thực OTP qua email
 - Đấu giá sản phẩm với hệ thống auto-bid
@@ -58,7 +58,7 @@ Bidify/
 │       ├── package.json
 │       └── .env.example
 │
-└── package.json         # Root package.json (chạy cả client và server)
+└── package.json
 ```
 
 ## Hướng dẫn triển khai
@@ -73,7 +73,7 @@ Bidify/
 4. Whitelist IP address (hoặc cho phép tất cả: `0.0.0.0/0`)
 5. Lấy connection string:
     ```
-    mongodb+srv://<username>:<password>@<cluster>.mongodb.net/auctionhub?retryWrites=true&w=majority
+    mongodb+srv://<username>:<password>@<cluster>.mongodb.net/bidify?retryWrites=true&w=majority
     ```
 
 #### Khởi tạo dữ liệu mẫu
@@ -88,11 +88,8 @@ npm install
 cp .env.example .env
 # Chỉnh sửa MONGO_URL trong .env
 
-# Khởi tạo database với dữ liệu mẫu
+# Khởi tạo database với dữ liệu mẫu (sẽ xóa dữ liệu cũ và tạo mới)
 npm run db:seed
-
-# Hoặc reset hoàn toàn database (XÓA TẤT CẢ DỮ LIỆU)
-npm run db:reset
 ```
 
 ---
@@ -116,13 +113,13 @@ Chỉnh sửa file `.env`:
 
 ```env
 # Application
-APP_NAME=AuctionHub
+APP_NAME=Bidify
 PORT=3000
 BASE_API_URL=api
 CLIENT_URL=http://localhost:8080
 
 # MongoDB
-MONGO_URL=mongodb+srv://<username>:<password>@<cluster>.mongodb.net/auctionhub?retryWrites=true&w=majority
+MONGO_URL=mongodb+srv://<username>:<password>@<cluster>.mongodb.net/bidify?retryWrites=true&w=majority
 
 # JWT Authentication
 JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
@@ -137,7 +134,7 @@ SMTP_PORT=587
 SMTP_SECURE=false
 SMTP_USER=your-email@gmail.com
 SMTP_PASS=your-16-char-app-password
-SMTP_FROM=AuctionHub <noreply@auctionhub.com>
+SMTP_FROM=Bidify <noreply@bidify.com>
 ```
 
 **Lưu ý về Gmail App Password:**
@@ -154,17 +151,20 @@ SMTP_FROM=AuctionHub <noreply@auctionhub.com>
 2. Đăng nhập bằng tài khoản Google
 3. Nhấn **"+ Create"** để tạo site mới
 4. Điền thông tin:
-    - **Label**: Tên dự án (VD: "AuctionHub")
-    - **reCAPTCHA type**: Chọn **reCAPTCHA v3** (xác thực ẩn, không cần checkbox)
+    - **Label**: Tên dự án (VD: "Bidify")
+    - **reCAPTCHA type**: Chọn **reCAPTCHA v3** (xác thực ẩn, không cần
+      checkbox)
     - **Domains**: Thêm domain của bạn:
         - `localhost` (cho development)
-        - Domain production (VD: `auctionhub.com`)
+        - Domain production (VD: `bidify.com`)
 5. Nhấn **Submit**
 6. Sau khi tạo xong, bạn sẽ nhận được 2 key:
     - **Site Key**: Dùng cho Frontend (`REACT_APP_RECAPTCHA_SITE_KEY`)
     - **Secret Key**: Dùng cho Backend (`RECAPTCHA_SECRET_KEY`)
 
-> **Lưu ý**: reCAPTCHA v3 hoạt động ẩn, không hiển thị checkbox. Nó tự động đánh giá hành vi người dùng và trả về điểm số (0.0 - 1.0). Điểm càng cao = càng có khả năng là người thật.
+> **Lưu ý**: reCAPTCHA v3 hoạt động ẩn, không hiển thị checkbox. Nó tự động đánh
+> giá hành vi người dùng và trả về điểm số (0.0 - 1.0). Điểm càng cao = càng có
+> khả năng là người thật.
 
 #### Bước 3: Khởi tạo Database
 
@@ -214,11 +214,15 @@ Frontend sẽ chạy tại: `http://localhost:8080`
 
 Sau khi chạy `npm run db:seed`:
 
-| Role   | Email                 | Password   |
-| ------ | --------------------- | ---------- |
-| Admin  | admin@auctionhub.com  | Admin@123  |
-| Seller | seller@auctionhub.com | Seller@123 |
-| Bidder | bidder@auctionhub.com | Bidder@123 |
+| Role   | Email              | Password    |
+| ------ | ------------------ | ----------- |
+| Admin  | admin@bidify.com   | password123 |
+| Seller | seller1@bidify.com | password123 |
+| Seller | seller2@bidify.com | password123 |
+| Bidder | bidder1@bidify.com | password123 |
+| Bidder | bidder2@bidify.com | password123 |
+| Bidder | bidder3@bidify.com | password123 |
+| Bidder | bidder4@bidify.com | password123 |
 
 ---
 
@@ -335,7 +339,6 @@ Cannot find module '@/...'
 ```bash
 npm run start
 npm run db:seed
-npm run db:reset
 ```
 
 ### Frontend (src/client/)
