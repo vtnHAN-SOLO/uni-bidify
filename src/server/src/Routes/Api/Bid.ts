@@ -155,14 +155,13 @@ const checkAutoExtension = async (product: ProductDoc): Promise<boolean> => {
 }
 
 /**
- * Process auto-bidding logic
- * When a new bid comes in, the system automatically counter-bids for the current highest bidder
- * up to their maxPrice
- *
- * Auto-bid rules:
- * - The winner is the person with the higher maxPrice
- * - The final price is: loser's maxPrice + priceStep (capped at winner's maxPrice)
- * - If tie: first bidder (current holder) wins at their maxPrice
+ * Process auto-bidding logic - IMPLEMENTED FOR USER SCENARIO
+ * * Logic Update:
+ * - We use an "Effective Max Price" which is min(realMax, buyNowPrice).
+ * - If User A (current winner) has Real Max 10500 and BuyNow is 10000 -> Effective Max is 10000.
+ * - If User C bids 10000 -> Effective Max is 10000.
+ * - Since Effective A == Effective C, User A (Current Holder) keeps the lead.
+ * - Final Price becomes 10000.
  */
 const processAutoBid = async (
 	product: ProductDoc,
@@ -178,11 +177,18 @@ const processAutoBid = async (
 	const currentHighestMaxPrice = product.highestBidderMaxPrice || 0
 	const priceStep = product.priceStep
 	const currentPrice = product.currentPrice
+	const buyNowPrice = product.buyNowPrice
 
-	// Case 1: No previous bidder - new bidder wins at current price + step
+	// Case 1: No previous bidder
 	if (!currentHighestBidderId) {
+		let nextPrice = currentPrice + priceStep
+		// Cap starting price at buyNowPrice if applicable
+		if (buyNowPrice && nextPrice > buyNowPrice) {
+			nextPrice = buyNowPrice
+		}
+		
 		return {
-			finalPrice: currentPrice + priceStep,
+			finalPrice: nextPrice,
 			winnerId: newBidderId,
 			winnerMaxPrice: newBidMaxPrice,
 			autoBidOccurred: false,
@@ -191,7 +197,6 @@ const processAutoBid = async (
 
 	// Case 2: Same bidder updating their max price
 	if (currentHighestBidderId === newBidderId) {
-		// Just update max price, keep current price
 		return {
 			finalPrice: currentPrice,
 			winnerId: newBidderId,
@@ -200,16 +205,31 @@ const processAutoBid = async (
 		}
 	}
 
-	// Case 3: Different bidder - auto-bid battle!
-	// Compare maxPrices to determine winner
+	// Case 3: Different bidder - CALCULATE EFFECTIVE MAX PRICES
+	
+	// If buyNowPrice exists, the "Effective Power" of a bid is capped at that price.
+	// This ensures that 10500 and 10000 are treated as equal strength (both cover the full price).
+	const effectiveCurrentMax = buyNowPrice 
+		? Math.min(currentHighestMaxPrice, buyNowPrice) 
+		: currentHighestMaxPrice
 
-	if (newBidMaxPrice > currentHighestMaxPrice) {
-		// New bidder wins!
-		// Final price = currentHighestMaxPrice + priceStep (or newBidMaxPrice if that's lower)
-		const finalPrice = Math.min(
-			currentHighestMaxPrice + priceStep,
-			newBidMaxPrice
-		)
+	const effectiveNewMax = buyNowPrice 
+		? Math.min(newBidMaxPrice, buyNowPrice) 
+		: newBidMaxPrice
+
+	// BATTLE LOGIC:
+
+	if (effectiveNewMax > effectiveCurrentMax) {
+		// New bidder wins because their effective max is strictly higher
+		// Price is previous effective max + step
+		let finalPrice = effectiveCurrentMax + priceStep
+		
+		// Cap final price at new bidder's effective max
+		if (finalPrice > effectiveNewMax) finalPrice = effectiveNewMax
+		
+		// Absolute Cap at BuyNowPrice (Redundant given effective calc, but safe)
+		if (buyNowPrice && finalPrice > buyNowPrice) finalPrice = buyNowPrice
+
 		return {
 			finalPrice,
 			winnerId: newBidderId,
@@ -218,13 +238,15 @@ const processAutoBid = async (
 		}
 	}
 
-	if (currentHighestMaxPrice > newBidMaxPrice) {
-		// Current holder wins!
-		// Final price = newBidMaxPrice + priceStep (or currentHighestMaxPrice if that's lower)
-		const finalPrice = Math.min(
-			newBidMaxPrice + priceStep,
-			currentHighestMaxPrice
-		)
+	if (effectiveCurrentMax > effectiveNewMax) {
+		// Current holder wins because their effective max is strictly higher
+		let finalPrice = effectiveNewMax + priceStep
+		
+		// Cap final price at current holder's effective max
+		if (finalPrice > effectiveCurrentMax) finalPrice = effectiveCurrentMax
+
+		if (buyNowPrice && finalPrice > buyNowPrice) finalPrice = buyNowPrice
+
 		return {
 			finalPrice,
 			winnerId: currentHighestBidderId,
@@ -233,15 +255,25 @@ const processAutoBid = async (
 		}
 	}
 
-	// Tie case: both have same max - first bidder (current holder) wins at their maxPrice
-	return {
-		finalPrice: currentHighestMaxPrice,
-		winnerId: currentHighestBidderId,
-		winnerMaxPrice: currentHighestMaxPrice,
-		autoBidOccurred: true,
+	// TIE CASE (effectiveCurrentMax === effectiveNewMax)
+	// Example: User A (10500 -> 10000) vs User C (10000 -> 10000).
+	// Logic: Current Holder (User A) holds the tie-breaker advantage.
+	{
+		// They win at the maximum price
+		let finalPrice = effectiveNewMax + priceStep
+		
+		// Cap at ceiling (which they both hit)
+		if (finalPrice > effectiveCurrentMax) finalPrice = effectiveCurrentMax
+		if (buyNowPrice && finalPrice > buyNowPrice) finalPrice = buyNowPrice
+
+		return {
+			finalPrice, // This will likely be 10000
+			winnerId: currentHighestBidderId,
+			winnerMaxPrice: currentHighestMaxPrice,
+			autoBidOccurred: true,
+		}
 	}
 }
-
 /**
  * Mask username for public display
  * "NguyenVanA" -> "****VanA"
@@ -268,122 +300,40 @@ router.post('/', Auth, async (req: Request, res: Response) => {
 		const { productId, maxPrice } = req.body
 		const user = req.user as AuthUser
 
-		// Validate input
-		if (!productId || !maxPrice) {
-			return res.status(400).json({
-				success: false,
-				error: 'productId và maxPrice là bắt buộc.',
-			})
-		}
+		if (!productId || !maxPrice) return res.status(400).json({ success: false, error: 'productId và maxPrice là bắt buộc.' })
+		if (typeof maxPrice !== 'number' || maxPrice <= 0) return res.status(400).json({ success: false, error: 'maxPrice phải là số dương.' })
 
-		if (typeof maxPrice !== 'number' || maxPrice <= 0) {
-			return res.status(400).json({
-				success: false,
-				error: 'maxPrice phải là số dương.',
-			})
-		}
-
-		// Get product
 		const product = (await Product.findById(productId)) as ProductDoc | null
-		if (!product) {
-			return res.status(404).json({
-				success: false,
-				error: 'Sản phẩm không tồn tại.',
-			})
-		}
+		if (!product) return res.status(404).json({ success: false, error: 'Sản phẩm không tồn tại.' })
+		if (new Date() > new Date(product.endTime)) return res.status(400).json({ success: false, error: 'Phiên đấu giá đã kết thúc.' })
+		if (product.startTime && new Date() < new Date(product.startTime)) return res.status(400).json({ success: false, error: 'Phiên đấu giá chưa bắt đầu.' })
+		if (product.isSold) return res.status(400).json({ success: false, error: 'Sản phẩm đã được bán.' })
+		if (product.seller.toString() === user._id.toString()) return res.status(400).json({ success: false, error: 'Bạn không thể đấu giá sản phẩm của chính mình.' })
+		
+		const isRejected = product.rejectedBidders.some(id => id.toString() === user._id.toString())
+		if (isRejected) return res.status(403).json({ success: false, error: 'Bạn đã bị từ chối tham gia đấu giá sản phẩm này.' })
 
-		// Check if auction has ended
-		if (new Date() > new Date(product.endTime)) {
-			return res.status(400).json({
-				success: false,
-				error: 'Phiên đấu giá đã kết thúc.',
-			})
-		}
-
-		// Check if auction has started
-		if (product.startTime && new Date() < new Date(product.startTime)) {
-			return res.status(400).json({
-				success: false,
-				error: 'Phiên đấu giá chưa bắt đầu.',
-			})
-		}
-
-		// Check if product is already sold
-		if (product.isSold) {
-			return res.status(400).json({
-				success: false,
-				error: 'Sản phẩm đã được bán.',
-			})
-		}
-
-		// Check if bidder is the seller
-		if (product.seller.toString() === user._id.toString()) {
-			return res.status(400).json({
-				success: false,
-				error: 'Bạn không thể đấu giá sản phẩm của chính mình.',
-			})
-		}
-
-		// Check if bidder is rejected
-		const isRejected = product.rejectedBidders.some(
-			(id) => id.toString() === user._id.toString()
-		)
-		if (isRejected) {
-			return res.status(403).json({
-				success: false,
-				error: 'Bạn đã bị từ chối tham gia đấu giá sản phẩm này.',
-			})
-		}
-
-		// Get fresh user data for rating check
 		const bidder = await User.findById(user._id).lean()
-		if (!bidder) {
-			return res.status(404).json({
-				success: false,
-				error: 'Không tìm thấy thông tin người dùng.',
-			})
-		}
+		if (!bidder) return res.status(404).json({ success: false, error: 'Không tìm thấy thông tin người dùng.' })
+		if (user.role === ROLES.Admin) return res.status(403).json({ success: false, error: 'Admin không được phép tham gia đấu giá.' })
 
-		// Admin cannot participate in auctions - view only
-		if (user.role === ROLES.Admin) {
-			return res.status(403).json({
-				success: false,
-				error: 'Admin không được phép tham gia đấu giá. Chức năng này chỉ dành cho Bidder và Seller.',
-			})
-		}
+		const eligibility = canBidderParticipate(bidder.positiveReviews || 0, bidder.negativeReviews || 0, product.allowUnratedBidders)
+		if (!eligibility.allowed) return res.status(403).json({ success: false, error: eligibility.reason })
 
-		// Check bidder eligibility based on rating settings
-		const eligibility = canBidderParticipate(
-			bidder.positiveReviews || 0,
-			bidder.negativeReviews || 0,
-			product.allowUnratedBidders
-		)
-
-		if (!eligibility.allowed) {
-			return res.status(403).json({
-				success: false,
-				error: eligibility.reason,
-			})
-		}
-
-		// Calculate minimum required bid
 		const minimumBid = product.currentPrice + product.priceStep
-
-		// Check if maxPrice is sufficient
 		if (maxPrice < minimumBid) {
 			return res.status(400).json({
 				success: false,
-				error: `Giá tối đa phải ít nhất ${minimumBid.toLocaleString('vi-VN')} VNĐ (giá hiện tại + bước giá).`,
+				error: `Giá tối đa phải ít nhất ${minimumBid.toLocaleString('vi-VN')} VNĐ.`,
 				minimumBid,
 				currentPrice: product.currentPrice,
-				priceStep: product.priceStep,
 			})
 		}
 
-		// Save previous highest bidder ID BEFORE processing auto-bid (for outbid notification)
+		// Save previous highest bidder ID (for outbid notification)
 		const previousHighestBidderId = product.highestBidder?.toString()
 
-		// Process auto-bidding
+		// Run Auto-Bid Logic
 		const { finalPrice, winnerId, winnerMaxPrice, autoBidOccurred } = await processAutoBid(
 			product,
 			user._id.toString(),
@@ -391,10 +341,16 @@ router.post('/', Auth, async (req: Request, res: Response) => {
 		)
 
 		const isWinner = winnerId === user._id.toString()
+		
+		// === CHECK IF PRICE HIT THE CAP (SCENARIO A WINS AT 10000) ===
+		const hitBuyNowCap = product.buyNowPrice && finalPrice >= product.buyNowPrice
+		if (hitBuyNowCap) {
+			product.isSold = true
+			product.endTime = new Date() // End immediately
+		}
 
 		// Create bid record(s)
 		if (isWinner) {
-			// New bidder wins - create their bid record
 			await Bid.create({
 				product: productId,
 				bidder: user._id,
@@ -402,52 +358,39 @@ router.post('/', Auth, async (req: Request, res: Response) => {
 				maxPrice: maxPrice,
 			})
 		} else {
-			// Current holder wins via auto-bid
-			// 1. Create losing bid record for new bidder (at their max price)
+			// Loser
 			await Bid.create({
 				product: productId,
 				bidder: user._id,
-				price: maxPrice, // Their max price (they got outbid)
+				price: maxPrice,
 				maxPrice: maxPrice,
 			})
-
-			// 2. Create winning auto-bid record for current holder
+			// Winner (Auto-defend)
 			await Bid.create({
 				product: productId,
 				bidder: winnerId,
-				price: finalPrice, // The winning price
+				price: finalPrice,
 				maxPrice: winnerMaxPrice,
 			})
 		}
 
-		// Update product with winner info
 		product.currentPrice = finalPrice
 		product.highestBidder = winnerId as any
-		product.highestBidderMaxPrice = winnerMaxPrice // Use the winner's maxPrice
-		product.bidCount = (product.bidCount || 0) + (isWinner ? 1 : 2) // Add 2 if auto-bid occurred
+		product.highestBidderMaxPrice = winnerMaxPrice
+		product.bidCount = (product.bidCount || 0) + (isWinner ? 1 : 2)
 
-		// Check auto-extension
-		const wasExtended = await checkAutoExtension(product)
+		// Only auto-extend if we didn't just sell it
+		let wasExtended = false
+		if (!hitBuyNowCap) {
+			wasExtended = await checkAutoExtension(product)
+		}
 
-		// Save product if not already saved by checkAutoExtension
 		if (!wasExtended) {
 			await product.save()
 		}
 
-		// Determine result message
-		let message: string
-
-		if (isWinner) {
-			message = autoBidOccurred
-				? `Bạn đã đặt giá thành công và đang dẫn đầu với ${finalPrice.toLocaleString('vi-VN')} VNĐ!`
-				: `Bạn đã đặt giá thành công với ${finalPrice.toLocaleString('vi-VN')} VNĐ!`
-		} else {
-			message = `Giá của bạn đã bị vượt qua bởi hệ thống tự động. Giá hiện tại: ${finalPrice.toLocaleString('vi-VN')} VNĐ.`
-		}
-
-		// ==================== SEND EMAIL NOTIFICATIONS ====================
+		// Notifications
 		try {
-			// Get seller info
 			const seller = await User.findById(product.seller).lean()
 			const bidderInfo = await User.findById(user._id).lean()
 
@@ -459,65 +402,38 @@ router.post('/', Auth, async (req: Request, res: Response) => {
 					bidderName: `${bidderInfo.firstName} ${bidderInfo.lastName}`,
 				}
 
-				// 1. Send email to bidder (the one who just placed bid)
-				MailService.sendMail(bidderInfo.email, 'bid-success-bidder', emailData).catch((err) =>
-					console.error('❌ Failed to send bid-success email to bidder:', err)
-				)
+				MailService.sendMail(bidderInfo.email, 'bid-success-bidder', emailData).catch(console.error)
+				MailService.sendMail(seller.email, 'bid-success-seller', {...emailData, sellerName: `${seller.firstName} ${seller.lastName}`}).catch(console.error)
 
-				// 2. Send email to seller
-				MailService.sendMail(seller.email, 'bid-success-seller', {
-					...emailData,
-					sellerName: `${seller.firstName} ${seller.lastName}`,
-				}).catch((err) =>
-					console.error('❌ Failed to send bid-success email to seller:', err)
-				)
-
-				// 3. If there was a previous highest bidder who got outbid, notify them
 				if (autoBidOccurred && isWinner) {
-					// New bidder won, previous holder got outbid
-					// Use previousHighestBidderId saved BEFORE updating product
 					if (previousHighestBidderId && previousHighestBidderId !== user._id.toString()) {
 						const previousBidder = await User.findById(previousHighestBidderId).lean()
 						if (previousBidder) {
-							// Get previous bidder's max bid
-							const previousBid = await Bid.findOne({
-								product: productId,
-								bidder: previousHighestBidderId,
-							})
-								.sort({ maxPrice: -1 })
-								.lean()
-
 							MailService.sendMail(previousBidder.email, 'bid-outbid', {
 								productName: product.name,
-								previousBid: previousBid?.maxPrice || product.currentPrice,
 								newBid: finalPrice,
 								outbidderName: `${bidderInfo.firstName} ${bidderInfo.lastName}`,
-								previousBidderName: `${previousBidder.firstName} ${previousBidder.lastName}`,
-								endTime: product.endTime,
-								productId: productId,
-							}).catch((err) =>
-								console.error('❌ Failed to send outbid email:', err)
-							)
+								productId: productId
+							}).catch(console.error)
 						}
 					}
 				} else if (!isWinner) {
-					// Current holder won via auto-bid, new bidder got outbid
 					MailService.sendMail(bidderInfo.email, 'bid-outbid', {
 						productName: product.name,
-						previousBid: maxPrice,
 						newBid: finalPrice,
 						outbidderName: 'Hệ thống tự động',
-						previousBidderName: `${bidderInfo.firstName} ${bidderInfo.lastName}`,
-						endTime: product.endTime,
-						productId: productId,
-					}).catch((err) =>
-						console.error('❌ Failed to send outbid email to new bidder:', err)
-					)
+						productId: productId
+					}).catch(console.error)
 				}
 			}
-		} catch (emailError) {
-			console.error('❌ Error sending bid emails:', emailError)
-			// Don't fail the bid if email fails
+		} catch (e) { console.error(e) }
+
+		let message = isWinner 
+			? `Bạn đang dẫn đầu với ${finalPrice.toLocaleString('vi-VN')} VNĐ!` 
+			: `Giá của bạn đã bị vượt qua.`
+			
+		if (hitBuyNowCap && isWinner) {
+			message = `Chúc mừng! Bạn đã chiến thắng phiên đấu giá với giá tối đa: ${finalPrice.toLocaleString('vi-VN')} VNĐ.`
 		}
 
 		return res.status(201).json({
@@ -528,16 +444,13 @@ router.post('/', Auth, async (req: Request, res: Response) => {
 				currentPrice: finalPrice,
 				yourMaxPrice: maxPrice,
 				wasExtended,
-				newEndTime: wasExtended ? product.endTime : undefined,
 				bidCount: product.bidCount,
+				isSold: product.isSold
 			},
 		})
 	} catch (error: unknown) {
 		console.error('❌ Error placing bid:', error)
-		return res.status(500).json({
-			success: false,
-			error: String(error) || 'Không thể đặt giá. Vui lòng thử lại.',
-		})
+		return res.status(500).json({ success: false, error: String(error) })
 	}
 })
 
