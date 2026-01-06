@@ -491,7 +491,7 @@ router.get('/home', async (req: Request, res: Response) => {
 			.limit(5)
 			.lean()
 
-		const highestPriceDocs = await Product.find()
+		const highestPriceDocs = await Product.find({isSold: false})
 			.populate('category', 'name')
 			.populate('highestBidder', 'firstName lastName')
 			.sort({ currentPrice: -1 })

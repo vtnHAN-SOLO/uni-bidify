@@ -418,8 +418,12 @@ export const ProductCard = (props: ProductCardProps) => {
 			{/* POPUP CONTENT */}
 			<HoverCardContent
 				className="w-80 p-4 shadow-xl border-primary/20"
-				sideOffset={5}
+				side='right'
+				avoidCollisions={true}
+				collisionPadding={16}
+				sideOffset={-90}
 				align="start"
+				alignOffset={300}
 			>
 				<ProductHoverDetails id={id} initialData={props} />
 			</HoverCardContent>
