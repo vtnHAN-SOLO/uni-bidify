@@ -14,8 +14,16 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from '@/components/ui/input/select'
-import { Search as SearchIcon, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
-import { searchProducts, SearchProductsParams } from '@/services/api/products.api'
+import {
+	Search as SearchIcon,
+	ChevronLeft,
+	ChevronRight,
+	Loader2,
+} from 'lucide-react'
+import {
+	searchProducts,
+	SearchProductsParams,
+} from '@/services/api/products.api'
 import { fetchCategories, Category } from '@/services/api/categories.api'
 
 // Custom debounce hook
@@ -41,12 +49,15 @@ export default function Search() {
 	const [category, setCategory] = useState(
 		searchParams.get('category') || 'all'
 	)
-	const [sortBy, setSortBy] = useState<'endTime-desc' | 'price-asc' | 'price-desc'>('endTime-desc')
+	const [sortBy, setSortBy] = useState<
+		'endTime-desc' | 'price-asc' | 'price-desc'
+	>('endTime-desc')
 	const [includeEnded, setIncludeEnded] = useState(
 		searchParams.get('includeEnded') === 'true'
 	)
 	const [currentPage, setCurrentPage] = useState(1)
-	const productsPerPage = 12
+	// Dynamic products per page: 8 when not including ended, 12 when including ended
+	const productsPerPage = includeEnded ? 12 : 8
 
 	// Debounce search query for real-time search (300ms delay)
 	const debouncedSearchQuery = useDebounce(searchQuery, 300)
@@ -68,7 +79,10 @@ export default function Search() {
 	}))
 
 	// Build search params for API using debounced values
-	const [sortField, sortOrder] = sortBy.split('-') as ['endTime' | 'price', 'asc' | 'desc']
+	const [sortField, sortOrder] = sortBy.split('-') as [
+		'endTime' | 'price',
+		'asc' | 'desc',
+	]
 	const apiParams: SearchProductsParams = {
 		page: currentPage,
 		limit: productsPerPage,
@@ -280,7 +294,9 @@ export default function Search() {
 									endTime={new Date(product.endTime)}
 									bidCount={product.bidCount || 0}
 									isNew={product.isNew}
-									highestBidder={product.highestBidderName || 'Chưa có'}
+									highestBidder={
+										product.highestBidderName || 'Chưa có'
+									}
 									category={product.categoryName || ''}
 									buyNowPrice={product.buyNowPrice}
 								/>
@@ -311,7 +327,10 @@ export default function Search() {
 											page = i + 1
 										} else if (currentPage <= 3) {
 											page = i + 1
-										} else if (currentPage >= totalPages - 2) {
+										} else if (
+											currentPage >=
+											totalPages - 2
+										) {
 											page = totalPages - 4 + i
 										} else {
 											page = currentPage - 2 + i
@@ -342,7 +361,9 @@ export default function Search() {
 											Math.min(totalPages, p + 1)
 										)
 									}
-									disabled={currentPage === totalPages || isFetching}
+									disabled={
+										currentPage === totalPages || isFetching
+									}
 								>
 									<ChevronRight className="h-4 w-4" />
 								</Button>
