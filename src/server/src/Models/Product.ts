@@ -44,4 +44,9 @@ ProductSchema.index({ currentPrice: 1 })
 // Create a descending index for createdAt to optimize sorting by creation date
 ProductSchema.index({ createdAt: -1 })
 
+// Create compound indexes for common query patterns to avoid in-memory sorting
+ProductSchema.index({ endTime: 1, _id: 1 }) // For sorting by endTime (ending soon)
+ProductSchema.index({ bidCount: -1, _id: 1 }) // For sorting by bidCount (most bids)
+ProductSchema.index({ currentPrice: -1, _id: 1 }) // For sorting by price (highest price)
+
 export default model('Product', ProductSchema)

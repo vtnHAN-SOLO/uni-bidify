@@ -258,6 +258,7 @@ router.get('/', async (req: Request, res: Response) => {
 			.sort(sortQuery)
 			.skip((Number(page) - 1) * Number(limit))
 			.limit(Number(limit))
+			.allowDiskUse(true)
 			.lean()
 
 		const total = await Product.countDocuments(query)
@@ -419,8 +420,12 @@ router.get('/search', async (req: Request, res: Response) => {
 		const sortQuery: Record<string, 1 | -1> = {}
 		sortQuery[sortField] = sortOrder
 
-		// Execute query
-		const products = await Product.find(query)
+		// Reduce page size when including ended auctions to avoid memory issues
+		const effectiveLimit =
+			includeEnded === 'true' ? Math.min(Number(limit), 8) : Number(limit)
+
+		// Execute query with cursor
+		const cursor = Product.find(query)
 			.populate('category', 'name')
 			.populate(
 				'seller',
@@ -428,9 +433,14 @@ router.get('/search', async (req: Request, res: Response) => {
 			)
 			.populate('highestBidder', 'firstName lastName')
 			.sort(sortQuery)
-			.skip((Number(page) - 1) * Number(limit))
-			.limit(Number(limit))
-			.lean()
+			.skip((Number(page) - 1) * effectiveLimit)
+			.limit(effectiveLimit)
+			.cursor({ batchSize: 100 })
+
+		// Set allowDiskUse on cursor
+		cursor.options.allowDiskUse = true
+
+		const products = await cursor.toArray()
 
 		const total = await Product.countDocuments(query)
 
@@ -449,8 +459,8 @@ router.get('/search', async (req: Request, res: Response) => {
 				categoryName: categoryName ? String(categoryName).trim() : '',
 				total,
 				page: Number(page),
-				limit: Number(limit),
-				totalPages: Math.ceil(total / Number(limit)),
+				limit: effectiveLimit,
+				totalPages: Math.ceil(total / effectiveLimit),
 			},
 		})
 	} catch (error: unknown) {
@@ -516,6 +526,7 @@ router.get('/ending-soon', async (req: Request, res: Response) => {
 			.sort({ endTime: 1 })
 			.skip((Number(page) - 1) * Number(limit))
 			.limit(Number(limit))
+			.allowDiskUse(true)
 			.lean()
 
 		const total = await Product.countDocuments({ endTime: { $gt: now } })
@@ -544,6 +555,7 @@ router.get('/most-bids', async (req: Request, res: Response) => {
 			.sort({ bidCount: -1 })
 			.skip((Number(page) - 1) * Number(limit))
 			.limit(Number(limit))
+			.allowDiskUse(true)
 			.lean()
 
 		const total = await Product.countDocuments()
@@ -572,6 +584,7 @@ router.get('/highest-price', async (req: Request, res: Response) => {
 			.sort({ currentPrice: -1 })
 			.skip((Number(page) - 1) * Number(limit))
 			.limit(Number(limit))
+			.allowDiskUse(true)
 			.lean()
 
 		const total = await Product.countDocuments()
@@ -619,6 +632,7 @@ router.get(
 				.sort({ createdAt: -1 })
 				.skip((Number(page) - 1) * Number(limit))
 				.limit(Number(limit))
+				.allowDiskUse(true)
 				.lean()
 
 			const total = await Product.countDocuments(query)
@@ -676,6 +690,7 @@ router.get(
 				)
 				.populate('highestBidder', 'firstName lastName')
 				.sort({ endTime: 1 })
+				.allowDiskUse(true)
 				.lean()
 
 			console.log(
@@ -729,6 +744,7 @@ router.get(
 				.populate('category', 'name')
 				.populate('highestBidder', 'firstName lastName')
 				.sort({ endTime: 1 })
+				.allowDiskUse(true)
 				.lean()
 
 			return res.json({
