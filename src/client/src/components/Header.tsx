@@ -52,7 +52,9 @@ export const Header = () => {
 	const { user, isAuthenticated, logout } = useAuth()
 	const navigate = useNavigate()
 	const { categories, loading: categoriesLoading } = useCategories()
-	const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
+	const [expandedCategory, setExpandedCategory] = useState<string | null>(
+		null
+	)
 	const [searchQuery, setSearchQuery] = useState('')
 	const [showSearchDropdown, setShowSearchDropdown] = useState(false)
 	const searchContainerRef = useRef<HTMLDivElement>(null)
@@ -107,7 +109,7 @@ export const Header = () => {
 	const handleProductClick = (productId: string) => {
 		setShowSearchDropdown(false)
 		setSearchQuery('')
-		navigate(`/product/${productId}`)
+		navigate(`/products/${productId}`)
 	}
 
 	// Get user initials for avatar
@@ -269,57 +271,73 @@ export const Header = () => {
 						</form>
 
 						{/* Search Dropdown */}
-						{showSearchDropdown && debouncedSearchQuery.trim().length > 0 && (
-							<div className="absolute top-full left-0 right-0 mt-1 bg-background border rounded-md shadow-lg z-50 max-h-[400px] overflow-y-auto">
-								{isSearching ? (
-									<div className="flex items-center justify-center py-4">
-										<Loader2 className="h-5 w-5 animate-spin text-primary" />
-										<span className="ml-2 text-sm text-muted-foreground">
-											Đang tìm kiếm...
-										</span>
-									</div>
-								) : searchProducts_results.length > 0 ? (
-									<>
-										{searchProducts_results.map((product) => (
+						{showSearchDropdown &&
+							debouncedSearchQuery.trim().length > 0 && (
+								<div className="absolute top-full left-0 right-0 mt-1 bg-background border rounded-md shadow-lg z-50 max-h-[400px] overflow-y-auto">
+									{isSearching ? (
+										<div className="flex items-center justify-center py-4">
+											<Loader2 className="h-5 w-5 animate-spin text-primary" />
+											<span className="ml-2 text-sm text-muted-foreground">
+												Đang tìm kiếm...
+											</span>
+										</div>
+									) : searchProducts_results.length > 0 ? (
+										<>
+											{searchProducts_results.map(
+												(product) => (
+													<button
+														key={product._id}
+														onClick={() =>
+															handleProductClick(
+																product._id
+															)
+														}
+														className="w-full flex items-center gap-3 p-3 hover:bg-accent transition-colors text-left"
+													>
+														<img
+															src={
+																product
+																	.images[0] ||
+																'/placeholder.jpg'
+															}
+															alt={product.name}
+															className="w-12 h-12 object-cover rounded"
+														/>
+														<div className="flex-1 min-w-0">
+															<p className="text-sm font-medium truncate">
+																{product.name}
+															</p>
+															<p className="text-sm text-primary font-semibold">
+																{formatCompactPrice(
+																	product.currentPrice
+																)}
+															</p>
+															{product.categoryName && (
+																<p className="text-xs text-muted-foreground">
+																	{
+																		product.categoryName
+																	}
+																</p>
+															)}
+														</div>
+													</button>
+												)
+											)}
 											<button
-												key={product._id}
-												onClick={() => handleProductClick(product._id)}
-												className="w-full flex items-center gap-3 p-3 hover:bg-accent transition-colors text-left"
+												onClick={handleSearch as any}
+												className="w-full p-3 text-sm text-primary hover:bg-accent transition-colors border-t"
 											>
-												<img
-													src={product.images[0] || '/placeholder.jpg'}
-													alt={product.name}
-													className="w-12 h-12 object-cover rounded"
-												/>
-												<div className="flex-1 min-w-0">
-													<p className="text-sm font-medium truncate">
-														{product.name}
-													</p>
-													<p className="text-sm text-primary font-semibold">
-														{formatCompactPrice(product.currentPrice)}
-													</p>
-													{product.categoryName && (
-														<p className="text-xs text-muted-foreground">
-															{product.categoryName}
-														</p>
-													)}
-												</div>
+												Xem tất cả kết quả cho "
+												{debouncedSearchQuery}"
 											</button>
-										))}
-										<button
-											onClick={handleSearch as any}
-											className="w-full p-3 text-sm text-primary hover:bg-accent transition-colors border-t"
-										>
-											Xem tất cả kết quả cho "{debouncedSearchQuery}"
-										</button>
-									</>
-								) : (
-									<div className="p-4 text-center text-sm text-muted-foreground">
-										Không tìm thấy sản phẩm nào
-									</div>
-								)}
-							</div>
-						)}
+										</>
+									) : (
+										<div className="p-4 text-center text-sm text-muted-foreground">
+											Không tìm thấy sản phẩm nào
+										</div>
+									)}
+								</div>
+							)}
 					</div>
 
 					<div className="flex items-center gap-2">
@@ -391,18 +409,30 @@ export const Header = () => {
 										{user?.role === 'ROLE SELLER' && (
 											<>
 												<DropdownMenuItem
-													onClick={() => navigate('/seller/products')}
+													onClick={() =>
+														navigate(
+															'/seller/products'
+														)
+													}
 													className="cursor-pointer"
 												>
 													<Package className="mr-2 h-4 w-4" />
-													<span>Quản lý sản phẩm</span>
+													<span>
+														Quản lý sản phẩm
+													</span>
 												</DropdownMenuItem>
 												<DropdownMenuItem
-													onClick={() => navigate('/seller/create-product')}
+													onClick={() =>
+														navigate(
+															'/seller/create-product'
+														)
+													}
 													className="cursor-pointer"
 												>
 													<Gavel className="mr-2 h-4 w-4" />
-													<span>Đăng sản phẩm mới</span>
+													<span>
+														Đăng sản phẩm mới
+													</span>
 												</DropdownMenuItem>
 											</>
 										)}
@@ -410,7 +440,9 @@ export const Header = () => {
 										{/* Admin-specific menu items */}
 										{user?.role === 'ROLE ADMIN' && (
 											<DropdownMenuItem
-												onClick={() => navigate('/admin')}
+												onClick={() =>
+													navigate('/admin')
+												}
 												className="cursor-pointer"
 											>
 												<Settings className="mr-2 h-4 w-4" />
