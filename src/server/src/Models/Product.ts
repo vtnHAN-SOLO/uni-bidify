@@ -38,4 +38,7 @@ const ProductSchema = new Schema(
 // Create a text index for full-text search on product name
 ProductSchema.index({ name: 'text' })
 
+// Create an ascending index for currentPrice to optimize price-based queries
+ProductSchema.index({ currentPrice: 1 })
+
 export default model('Product', ProductSchema)
