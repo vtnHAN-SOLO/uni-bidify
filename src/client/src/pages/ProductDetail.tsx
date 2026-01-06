@@ -42,7 +42,7 @@ import {
 	Send,
 	Loader2,
 } from 'lucide-react'
-import { formatDistanceToNow } from 'date-fns'
+import { formatDistanceToNow, format } from 'date-fns'
 import { vi } from 'date-fns/locale'
 import { useToast } from '@/hooks/use-toast'
 import {
@@ -108,10 +108,15 @@ const ProductDetail = () => {
 	const isWinner = product?.highestBidderId === user?.id
 
 	// Check if auction has ended
-	const isAuctionEnded = product ? (product.isSold || new Date(product.endTime) <= new Date()) : false
+	const isAuctionEnded = product
+		? product.isSold || new Date(product.endTime) <= new Date()
+		: false
 
 	// Check if user should be redirected to order completion page
-	const shouldRedirectToOrder = isAuctionEnded && product?.highestBidderId && (isProductSeller || isWinner)
+	const shouldRedirectToOrder =
+		isAuctionEnded &&
+		product?.highestBidderId &&
+		(isProductSeller || isWinner)
 
 	// Fetch bid history from API
 	const { data: bidHistoryData, isLoading: isBidHistoryLoading } = useQuery({
@@ -177,7 +182,9 @@ const ProductDetail = () => {
 		onSuccess: (response) => {
 			if (response.success) {
 				toast({
-					title: response.data.isWinner ? 'Đặt giá thành công!' : 'Đã đặt giá',
+					title: response.data.isWinner
+						? 'Đặt giá thành công!'
+						: 'Đã đặt giá',
 					description: response.message,
 				})
 				// Refresh product and bid history
@@ -209,7 +216,8 @@ const ProductDetail = () => {
 		onError: (error: any) => {
 			toast({
 				title: 'Lỗi mua ngay',
-				description: error.response?.data?.error || 'Không thể mua ngay',
+				description:
+					error.response?.data?.error || 'Không thể mua ngay',
 				variant: 'destructive',
 			})
 		},
@@ -250,7 +258,8 @@ const ProductDetail = () => {
 		onError: (error: any) => {
 			toast({
 				title: 'Lỗi',
-				description: error.response?.data?.error || 'Không thể gửi câu hỏi',
+				description:
+					error.response?.data?.error || 'Không thể gửi câu hỏi',
 				variant: 'destructive',
 			})
 		},
@@ -402,12 +411,18 @@ const ProductDetail = () => {
 						<div className="space-y-4">
 							<div className="relative aspect-square overflow-hidden rounded-lg bg-muted">
 								<img
-									src={product.images?.[0] || '/placeholder.png'}
+									src={
+										product.images?.[0] ||
+										'/placeholder.png'
+									}
 									alt={product.name}
 									className="h-full w-full object-cover opacity-75"
 								/>
 								<div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-									<Badge variant="destructive" className="text-lg px-4 py-2">
+									<Badge
+										variant="destructive"
+										className="text-lg px-4 py-2"
+									>
 										Đã kết thúc
 									</Badge>
 								</div>
@@ -442,7 +457,10 @@ const ProductDetail = () => {
 							<Card className="border-destructive">
 								<CardContent className="p-6 space-y-4">
 									<div className="text-center py-4">
-										<Badge variant="destructive" className="text-lg px-4 py-2 mb-4">
+										<Badge
+											variant="destructive"
+											className="text-lg px-4 py-2 mb-4"
+										>
 											Phiên đấu giá đã kết thúc
 										</Badge>
 										<p className="text-muted-foreground">
@@ -460,7 +478,10 @@ const ProductDetail = () => {
 												Giá kết thúc
 											</p>
 											<p className="text-3xl font-bold text-muted-foreground">
-												{product.currentPrice.toLocaleString('vi-VN')}₫
+												{product.currentPrice.toLocaleString(
+													'vi-VN'
+												)}
+												₫
 											</p>
 										</div>
 										<div className="text-right">
@@ -479,33 +500,50 @@ const ProductDetail = () => {
 										<div className="flex items-center gap-3">
 											<Avatar className="h-10 w-10">
 												<AvatarFallback className="bg-primary text-primary-foreground">
-													{product.sellerName?.[0] || 'S'}
+													{product.sellerName?.[0] ||
+														'S'}
 												</AvatarFallback>
 											</Avatar>
 											<div className="flex-1">
-												<p className="font-semibold">{product.sellerName}</p>
+												<p className="font-semibold">
+													{product.sellerName}
+												</p>
 												<div className="flex items-center gap-1 text-sm text-muted-foreground">
 													<Star className="h-3 w-3 fill-accent text-accent" />
 													<span>
-														{product.sellerRating}% ({product.sellerTotalRatings} đánh giá)
+														{product.sellerRating}%
+														(
+														{
+															product.sellerTotalRatings
+														}{' '}
+														đánh giá)
 													</span>
 												</div>
 											</div>
 										</div>
 
-										{product.highestBidderName && product.highestBidderName !== 'Chưa có' && (
-											<p className="text-sm text-muted-foreground">
-												Người chiến thắng:{' '}
-												<span className="font-semibold">{product.highestBidderName}</span>
-											</p>
-										)}
+										{product.highestBidderName &&
+											product.highestBidderName !==
+												'Chưa có' && (
+												<p className="text-sm text-muted-foreground">
+													Người chiến thắng:{' '}
+													<span className="font-semibold">
+														{
+															product.highestBidderName
+														}
+													</span>
+												</p>
+											)}
 									</div>
 								</CardContent>
 							</Card>
 
 							<div className="flex gap-2">
 								<Link to="/" className="flex-1">
-									<Button variant="outline" className="w-full">
+									<Button
+										variant="outline"
+										className="w-full"
+									>
 										Quay lại trang chủ
 									</Button>
 								</Link>
@@ -544,11 +582,16 @@ const ProductDetail = () => {
 									<ProductCard
 										key={p._id}
 										id={p._id}
-										image={p.images?.[0] || '/images/placeholder.jpg'}
+										image={
+											p.images?.[0] ||
+											'/images/placeholder.jpg'
+										}
 										title={p.name}
 										currentPrice={p.currentPrice}
 										buyNowPrice={p.buyNowPrice}
-										highestBidder={p.highestBidderName || 'Chưa có'}
+										highestBidder={
+											p.highestBidderName || 'Chưa có'
+										}
 										bidCount={p.bidCount || 0}
 										endTime={new Date(p.endTime)}
 										isNew={p.isNew}
@@ -748,7 +791,8 @@ const ProductDetail = () => {
 								<Card className="border-muted">
 									<CardContent className="p-6">
 										<p className="text-center text-muted-foreground">
-											Admin chỉ có quyền xem, không thể tham gia đấu giá.
+											Admin chỉ có quyền xem, không thể
+											tham gia đấu giá.
 										</p>
 									</CardContent>
 								</Card>
@@ -757,12 +801,22 @@ const ProductDetail = () => {
 									<CardContent className="p-6 space-y-4">
 										{/* Show current user's bid status */}
 										{myBid && (
-											<div className={`p-3 rounded-lg ${myBid.isWinning ? 'bg-green-100 border border-green-500' : 'bg-yellow-100 border border-yellow-500'}`}>
-												<p className={`text-sm font-medium ${myBid.isWinning ? 'text-green-700' : 'text-yellow-700'}`}>
-													{myBid.isWinning ? '🏆 Bạn đang dẫn đầu!' : '⚠️ Bạn đã bị vượt qua'}
+											<div
+												className={`p-3 rounded-lg ${myBid.isWinning ? 'bg-green-100 border border-green-500' : 'bg-yellow-100 border border-yellow-500'}`}
+											>
+												<p
+													className={`text-sm font-medium ${myBid.isWinning ? 'text-green-700' : 'text-yellow-700'}`}
+												>
+													{myBid.isWinning
+														? '🏆 Bạn đang dẫn đầu!'
+														: '⚠️ Bạn đã bị vượt qua'}
 												</p>
 												<p className="text-sm text-muted-foreground">
-													Giá tối đa của bạn: {myBid.maxPrice.toLocaleString('vi-VN')}₫
+													Giá tối đa của bạn:{' '}
+													{myBid.maxPrice.toLocaleString(
+														'vi-VN'
+													)}
+													₫
 												</p>
 											</div>
 										)}
@@ -777,7 +831,9 @@ const ProductDetail = () => {
 													value={maxBidAmount}
 													onChange={(e) =>
 														setMaxBidAmount(
-															Number(e.target.value)
+															Number(
+																e.target.value
+															)
 														)
 													}
 													min={
@@ -785,7 +841,8 @@ const ProductDetail = () => {
 														(product.priceStep || 0)
 													}
 													step={
-														product.priceStep || 100000
+														product.priceStep ||
+														100000
 													}
 													className="text-lg font-semibold"
 													disabled={isProductSeller}
@@ -807,7 +864,8 @@ const ProductDetail = () => {
 												₫
 											</p>
 											<p className="text-xs text-blue-600">
-												💡 Hệ thống sẽ tự động đấu giá cho bạn đến mức giá tối đa này
+												💡 Hệ thống sẽ tự động đấu giá
+												cho bạn đến mức giá tối đa này
 											</p>
 										</div>
 
@@ -816,21 +874,29 @@ const ProductDetail = () => {
 												size="lg"
 												className="flex-1"
 												onClick={handlePlaceBid}
-												disabled={placeBidMutation.isPending || isProductSeller}
+												disabled={
+													placeBidMutation.isPending ||
+													isProductSeller
+												}
 											>
 												{placeBidMutation.isPending ? (
 													<Loader2 className="mr-2 h-5 w-5 animate-spin" />
 												) : (
 													<Gavel className="mr-2 h-5 w-5" />
 												)}
-												{isProductSeller ? 'Không thể đấu giá' : 'Đặt giá'}
+												{isProductSeller
+													? 'Không thể đấu giá'
+													: 'Đặt giá'}
 											</Button>
 											{product.buyNowPrice && (
 												<Button
 													size="lg"
 													variant="outline"
 													className="flex-1 border-accent text-accent hover:bg-accent hover:text-accent-foreground"
-													disabled={isProductSeller || buyNowMutation.isPending}
+													disabled={
+														isProductSeller ||
+														buyNowMutation.isPending
+													}
 													onClick={handleBuyNow}
 												>
 													{buyNowMutation.isPending ? (
@@ -845,7 +911,14 @@ const ProductDetail = () => {
 
 										{product.autoExtend && (
 											<p className="text-xs text-muted-foreground text-center">
-												⚡ Sản phẩm có tự động gia hạn {auctionSettings?.extensionMinutes ?? 10} phút nếu có lượt đấu giá mới trước khi kết thúc {auctionSettings?.triggerMinutes ?? 5} phút
+												⚡ Sản phẩm có tự động gia hạn{' '}
+												{auctionSettings?.extensionMinutes ??
+													10}{' '}
+												phút nếu có lượt đấu giá mới
+												trước khi kết thúc{' '}
+												{auctionSettings?.triggerMinutes ??
+													5}{' '}
+												phút
 											</p>
 										)}
 									</CardContent>
@@ -889,12 +962,17 @@ const ProductDetail = () => {
 										</p>
 									) : (
 										questions.map((qa) => (
-											<div key={qa._id} className="space-y-3">
+											<div
+												key={qa._id}
+												className="space-y-3"
+											>
 												<div className="rounded-lg bg-muted p-4">
 													<div className="flex items-start gap-3">
 														<Avatar className="h-8 w-8">
 															<AvatarFallback>
-																{qa.askerName?.[0] || 'U'}
+																{qa
+																	.askerName?.[0] ||
+																	'U'}
 															</AvatarFallback>
 														</Avatar>
 														<div className="flex-1">
@@ -903,7 +981,9 @@ const ProductDetail = () => {
 															</p>
 															<p className="text-sm text-muted-foreground">
 																{formatDistanceToNow(
-																	new Date(qa.createdAt),
+																	new Date(
+																		qa.createdAt
+																	),
 																	{
 																		addSuffix: true,
 																		locale: vi,
@@ -922,21 +1002,27 @@ const ProductDetail = () => {
 														<div className="flex items-start gap-3">
 															<Avatar className="h-8 w-8">
 																<AvatarFallback className="bg-primary text-primary-foreground">
-																	{product?.sellerName?.[0] || 'S'}
+																	{product
+																		?.sellerName?.[0] ||
+																		'S'}
 																</AvatarFallback>
 															</Avatar>
 															<div className="flex-1">
 																<p className="text-sm font-semibold">
-																	{product?.sellerName || 'Người bán'}
+																	{product?.sellerName ||
+																		'Người bán'}
 																</p>
 																<p className="text-sm text-muted-foreground">
-																	{qa.answeredAt && formatDistanceToNow(
-																		new Date(qa.answeredAt),
-																		{
-																			addSuffix: true,
-																			locale: vi,
-																		}
-																	)}
+																	{qa.answeredAt &&
+																		formatDistanceToNow(
+																			new Date(
+																				qa.answeredAt
+																			),
+																			{
+																				addSuffix: true,
+																				locale: vi,
+																			}
+																		)}
 																</p>
 																<p className="mt-2">
 																	{qa.answer}
@@ -947,15 +1033,25 @@ const ProductDetail = () => {
 												) : (
 													isProductSeller && (
 														<div className="ml-8">
-															{replyingTo === qa._id ? (
+															{replyingTo ===
+															qa._id ? (
 																<div className="space-y-2 rounded-lg border bg-background p-4">
 																	<Label>
-																		Trả lời câu hỏi
+																		Trả lời
+																		câu hỏi
 																	</Label>
 																	<Textarea
-																		value={replyText}
-																		onChange={(e) =>
-																			setReplyText(e.target.value)
+																		value={
+																			replyText
+																		}
+																		onChange={(
+																			e
+																		) =>
+																			setReplyText(
+																				e
+																					.target
+																					.value
+																			)
 																		}
 																		placeholder="Nhập câu trả lời..."
 																		className="min-h-[80px]"
@@ -964,9 +1060,13 @@ const ProductDetail = () => {
 																		<Button
 																			size="sm"
 																			onClick={() =>
-																				handleReplyQuestion(qa._id)
+																				handleReplyQuestion(
+																					qa._id
+																				)
 																			}
-																			disabled={answerQuestionMutation.isPending}
+																			disabled={
+																				answerQuestionMutation.isPending
+																			}
 																		>
 																			{answerQuestionMutation.isPending ? (
 																				<Loader2 className="h-4 w-4 mr-1 animate-spin" />
@@ -979,8 +1079,12 @@ const ProductDetail = () => {
 																			size="sm"
 																			variant="outline"
 																			onClick={() => {
-																				setReplyingTo(null)
-																				setReplyText('')
+																				setReplyingTo(
+																					null
+																				)
+																				setReplyText(
+																					''
+																				)
 																			}}
 																		>
 																			Hủy
@@ -992,7 +1096,9 @@ const ProductDetail = () => {
 																	size="sm"
 																	variant="outline"
 																	onClick={() =>
-																		setReplyingTo(qa._id)
+																		setReplyingTo(
+																			qa._id
+																		)
 																	}
 																>
 																	<MessageSquare className="h-4 w-4 mr-1" />
@@ -1020,13 +1126,18 @@ const ProductDetail = () => {
 												<Textarea
 													value={question}
 													onChange={(e) =>
-														setQuestion(e.target.value)
+														setQuestion(
+															e.target.value
+														)
 													}
 													placeholder="Nhập câu hỏi của bạn (ít nhất 10 ký tự)..."
 												/>
 												<Button
 													type="submit"
-													disabled={askQuestionMutation.isPending || question.length < 10}
+													disabled={
+														askQuestionMutation.isPending ||
+														question.length < 10
+													}
 												>
 													{askQuestionMutation.isPending ? (
 														<Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -1076,7 +1187,10 @@ const ProductDetail = () => {
 															<p className="font-semibold flex items-center gap-2">
 																{bid.bidderName}
 																{bid.isOwnBid && (
-																	<Badge variant="secondary" className="text-xs">
+																	<Badge
+																		variant="secondary"
+																		className="text-xs"
+																	>
 																		Bạn
 																	</Badge>
 																)}
@@ -1087,16 +1201,20 @@ const ProductDetail = () => {
 																)}
 															</p>
 															<p className="text-xs text-muted-foreground">
-																{formatDistanceToNow(
-																	new Date(bid.createdAt),
-																	{
-																		addSuffix: true,
-																		locale: vi,
-																	}
+																{format(
+																	new Date(
+																		bid.createdAt
+																	),
+																	'dd/MM/yyyy HH:mm'
 																)}
-																{bid.bidderRating >= 0 && (
+																{bid.bidderRating >=
+																	0 && (
 																	<span className="ml-2">
-																		⭐ {bid.bidderRating}%
+																		⭐{' '}
+																		{
+																			bid.bidderRating
+																		}
+																		%
 																	</span>
 																)}
 															</p>
@@ -1104,47 +1222,91 @@ const ProductDetail = () => {
 														<p
 															className={`font-bold ${idx === 0 ? 'text-primary' : ''}`}
 														>
-															{bid.price.toLocaleString('vi-VN')}₫
+															{bid.price.toLocaleString(
+																'vi-VN'
+															)}
+															₫
 														</p>
 													</div>
 													{/* Seller can reject bids */}
-													{isProductSeller && !bid.isOwnBid && (
-														<AlertDialog>
-															<AlertDialogTrigger asChild>
-																<Button
-																	variant="destructive"
-																	size="sm"
-																	className="w-full"
-																	disabled={rejectBidMutation.isPending}
+													{isProductSeller &&
+														!bid.isOwnBid && (
+															<AlertDialog>
+																<AlertDialogTrigger
+																	asChild
 																>
-																	<Ban className="h-4 w-4 mr-1" />
-																	Từ chối
-																</Button>
-															</AlertDialogTrigger>
-															<AlertDialogContent>
-																<AlertDialogHeader>
-																	<AlertDialogTitle>
-																		Xác nhận từ chối lượt đấu giá
-																	</AlertDialogTitle>
-																	<AlertDialogDescription>
-																		Bạn có chắc chắn muốn từ chối lượt đấu giá của{' '}
-																		{bid.bidderName}? Người này sẽ không được phép
-																		đấu giá sản phẩm này nữa.
-																	</AlertDialogDescription>
-																</AlertDialogHeader>
-																<AlertDialogFooter>
-																	<AlertDialogCancel>Hủy</AlertDialogCancel>
-																	<AlertDialogAction
-																		onClick={() =>
-																			handleRejectBid(bid._id, bid.bidderName)
+																	<Button
+																		variant="destructive"
+																		size="sm"
+																		className="w-full"
+																		disabled={
+																			rejectBidMutation.isPending
 																		}
 																	>
-																		Xác nhận
-																	</AlertDialogAction>
-																</AlertDialogFooter>
-															</AlertDialogContent>
-														</AlertDialog>
-													)}
+																		<Ban className="h-4 w-4 mr-1" />
+																		Từ chối
+																	</Button>
+																</AlertDialogTrigger>
+																<AlertDialogContent>
+																	<AlertDialogHeader>
+																		<AlertDialogTitle>
+																			Xác
+																			nhận
+																			từ
+																			chối
+																			lượt
+																			đấu
+																			giá
+																		</AlertDialogTitle>
+																		<AlertDialogDescription>
+																			Bạn
+																			có
+																			chắc
+																			chắn
+																			muốn
+																			từ
+																			chối
+																			lượt
+																			đấu
+																			giá
+																			của{' '}
+																			{
+																				bid.bidderName
+																			}
+																			?
+																			Người
+																			này
+																			sẽ
+																			không
+																			được
+																			phép
+																			đấu
+																			giá
+																			sản
+																			phẩm
+																			này
+																			nữa.
+																		</AlertDialogDescription>
+																	</AlertDialogHeader>
+																	<AlertDialogFooter>
+																		<AlertDialogCancel>
+																			Hủy
+																		</AlertDialogCancel>
+																		<AlertDialogAction
+																			onClick={() =>
+																				handleRejectBid(
+																					bid._id,
+																					bid.bidderName
+																				)
+																			}
+																		>
+																			Xác
+																			nhận
+																		</AlertDialogAction>
+																	</AlertDialogFooter>
+																</AlertDialogContent>
+															</AlertDialog>
+														)}
 												</div>
 											))}
 										</div>
@@ -1197,15 +1359,19 @@ const ProductDetail = () => {
 					<AlertDialogHeader>
 						<AlertDialogTitle>Xác nhận đặt giá</AlertDialogTitle>
 						<AlertDialogDescription className="space-y-2">
-							<p>Bạn có chắc chắn muốn đặt giá cho sản phẩm này?</p>
+							<p>
+								Bạn có chắc chắn muốn đặt giá cho sản phẩm này?
+							</p>
 							<div className="bg-muted p-3 rounded-lg mt-2">
 								<p className="font-medium">{product?.name}</p>
 								<p className="text-lg font-bold text-primary mt-1">
-									Giá đặt: {maxBidAmount.toLocaleString('vi-VN')}₫
+									Giá đặt:{' '}
+									{maxBidAmount.toLocaleString('vi-VN')}₫
 								</p>
 							</div>
 							<p className="text-sm text-muted-foreground mt-2">
-								Lưu ý: Hệ thống sẽ tự động đấu giá cho bạn cho đến khi đạt giá tối đa này.
+								Lưu ý: Hệ thống sẽ tự động đấu giá cho bạn cho
+								đến khi đạt giá tối đa này.
 							</p>
 						</AlertDialogDescription>
 					</AlertDialogHeader>
@@ -1219,7 +1385,10 @@ const ProductDetail = () => {
 			</AlertDialog>
 
 			{/* Buy Now Confirmation Dialog */}
-			<AlertDialog open={showBuyNowConfirm} onOpenChange={setShowBuyNowConfirm}>
+			<AlertDialog
+				open={showBuyNowConfirm}
+				onOpenChange={setShowBuyNowConfirm}
+			>
 				<AlertDialogContent>
 					<AlertDialogHeader>
 						<AlertDialogTitle>Xác nhận mua ngay</AlertDialogTitle>
@@ -1228,17 +1397,26 @@ const ProductDetail = () => {
 							<div className="bg-muted p-3 rounded-lg mt-2">
 								<p className="font-medium">{product?.name}</p>
 								<p className="text-lg font-bold text-accent mt-1">
-									Giá mua ngay: {product?.buyNowPrice?.toLocaleString('vi-VN')}₫
+									Giá mua ngay:{' '}
+									{product?.buyNowPrice?.toLocaleString(
+										'vi-VN'
+									)}
+									₫
 								</p>
 							</div>
 							<p className="text-sm text-muted-foreground mt-2">
-								Lưu ý: Phiên đấu giá sẽ kết thúc ngay lập tức và bạn sẽ là người chiến thắng. Bạn cần thanh toán sau khi xác nhận.
+								Lưu ý: Phiên đấu giá sẽ kết thúc ngay lập tức và
+								bạn sẽ là người chiến thắng. Bạn cần thanh toán
+								sau khi xác nhận.
 							</p>
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
 						<AlertDialogCancel>Hủy</AlertDialogCancel>
-						<AlertDialogAction onClick={confirmBuyNow} className="bg-accent hover:bg-accent/90">
+						<AlertDialogAction
+							onClick={confirmBuyNow}
+							className="bg-accent hover:bg-accent/90"
+						>
 							Xác nhận mua ngay
 						</AlertDialogAction>
 					</AlertDialogFooter>

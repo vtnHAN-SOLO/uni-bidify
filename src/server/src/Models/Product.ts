@@ -41,4 +41,7 @@ ProductSchema.index({ name: 'text' })
 // Create an ascending index for currentPrice to optimize price-based queries
 ProductSchema.index({ currentPrice: 1 })
 
+// Create a descending index for createdAt to optimize sorting by creation date
+ProductSchema.index({ createdAt: -1 })
+
 export default model('Product', ProductSchema)

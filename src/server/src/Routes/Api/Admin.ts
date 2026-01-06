@@ -59,23 +59,26 @@ router.get(
 			}
 
 			// ✅ Map categories with correct product counts
-			const categoriesWithCount = (categories as any[]).map((category: any) => {
-				const categoryId = category._id.toString()
-				const children = childrenMap[categoryId]
-				const hasChildren = children !== undefined && children.length > 0
+			const categoriesWithCount = (categories as any[]).map(
+				(category: any) => {
+					const categoryId = category._id.toString()
+					const children = childrenMap[categoryId]
+					const hasChildren =
+						children !== undefined && children.length > 0
 
-				return {
-					id: categoryId,
-					name: category.name,
-					parent: category.parent
-						? category.parent.toString()
-						: null,
-					// Parent categories show total (own + children), child categories show direct count
-					productCount: hasChildren
-						? getTotalCount(categoryId)
-						: categoryProductCounts[categoryId] || 0,
+					return {
+						id: categoryId,
+						name: category.name,
+						parent: category.parent
+							? category.parent.toString()
+							: null,
+						// Parent categories show total (own + children), child categories show direct count
+						productCount: hasChildren
+							? getTotalCount(categoryId)
+							: categoryProductCounts[categoryId] || 0,
+					}
 				}
-			})
+			)
 
 			return res.json({
 				success: true,
@@ -188,7 +191,9 @@ router.put(
 			// ✅ Check if category exists
 			const category = await Category.findById(id)
 			if (!category) {
-				return res.status(404).json({ error: 'Không tìm thấy danh mục.' })
+				return res
+					.status(404)
+					.json({ error: 'Không tìm thấy danh mục.' })
 			}
 
 			// ✅ If parent is provided, verify it exists and is not the same as id
@@ -241,7 +246,9 @@ router.delete(
 
 			const category = await Category.findById(id)
 			if (!category) {
-				return res.status(404).json({ error: 'Không tìm thấy danh mục.' })
+				return res
+					.status(404)
+					.json({ error: 'Không tìm thấy danh mục.' })
 			}
 
 			// ✅ Check if category has products
@@ -404,7 +411,9 @@ router.get(
 		} catch (error: any) {
 			console.error('Get upgrade requests error:', error)
 			return res.status(500).json({
-				error: error.message || 'Không thể lấy danh sách yêu cầu nâng cấp.',
+				error:
+					error.message ||
+					'Không thể lấy danh sách yêu cầu nâng cấp.',
 			})
 		}
 	}
@@ -432,7 +441,9 @@ router.put(
 
 			const user = await User.findById(id)
 			if (!user) {
-				return res.status(404).json({ error: 'Không tìm thấy người dùng.' })
+				return res
+					.status(404)
+					.json({ error: 'Không tìm thấy người dùng.' })
 			}
 
 			if (user.upgradeRequestStatus !== UPGRADE_REQUEST_STATUS.Pending) {
@@ -505,7 +516,9 @@ router.get(
 				.lean()
 
 			if (!user) {
-				return res.status(404).json({ error: 'Không tìm thấy người dùng.' })
+				return res
+					.status(404)
+					.json({ error: 'Không tìm thấy người dùng.' })
 			}
 
 			return res.json({
@@ -640,7 +653,9 @@ router.delete(
 			// ✅ Check if user exists
 			const user = await User.findById(id)
 			if (!user) {
-				return res.status(404).json({ error: 'Không tìm thấy người dùng.' })
+				return res
+					.status(404)
+					.json({ error: 'Không tìm thấy người dùng.' })
 			}
 
 			// ✅ Prevent deleting admin users
@@ -688,7 +703,9 @@ router.put(
 
 			const user = await User.findById(id)
 			if (!user) {
-				return res.status(404).json({ error: 'Không tìm thấy người dùng.' })
+				return res
+					.status(404)
+					.json({ error: 'Không tìm thấy người dùng.' })
 			}
 
 			user.isActive = status === 'active'
@@ -708,7 +725,9 @@ router.put(
 		} catch (error: any) {
 			console.error('Update user status error:', error)
 			return res.status(500).json({
-				error: error.message || 'Không thể cập nhật trạng thái người dùng.',
+				error:
+					error.message ||
+					'Không thể cập nhật trạng thái người dùng.',
 			})
 		}
 	}
@@ -736,11 +755,13 @@ router.get(
 			const total = await Product.countDocuments()
 
 			// ✅ Get products with pagination
+			// Use allowDiskUse to handle large datasets that exceed memory limit
 			const products = await Product.find()
 				.populate('category', 'name')
 				.skip(skip)
 				.limit(Number(limit) || 20)
 				.sort({ createdAt: -1 })
+				.allowDiskUse(true)
 				.lean()
 
 			const mappedProducts = products.map((product: any) => ({
@@ -797,7 +818,9 @@ router.get(
 				.lean()
 
 			if (!product) {
-				return res.status(404).json({ error: 'Không tìm thấy sản phẩm.' })
+				return res
+					.status(404)
+					.json({ error: 'Không tìm thấy sản phẩm.' })
 			}
 
 			// ✅ Calculate seller rating
@@ -872,7 +895,9 @@ router.delete(
 
 			const product = await Product.findById(id)
 			if (!product) {
-				return res.status(404).json({ error: 'Không tìm thấy sản phẩm.' })
+				return res
+					.status(404)
+					.json({ error: 'Không tìm thấy sản phẩm.' })
 			}
 
 			// ✅ Delete product
