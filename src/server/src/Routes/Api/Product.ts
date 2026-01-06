@@ -89,6 +89,13 @@ const maskUsername = (firstName: string, lastName: string): string => {
 	return '****' + fullName.slice(-4)
 }
 
+// ✅ Constant: Products created within this threshold are marked as "new"
+const NEW_PRODUCT_MINUTES = 30
+const getNewProductThreshold = (): Date => {
+	const now = new Date()
+	return new Date(now.getTime() - NEW_PRODUCT_MINUTES * 60 * 1000)
+}
+
 // ==================== PUBLIC SETTINGS ROUTE ====================
 
 /**
@@ -129,7 +136,7 @@ router.get('/auction-settings', async (_req: Request, res: Response) => {
 })
 
 // ✅ HÀM MAP CHUNG (tái sử dụng cho tất cả routes)
-const mapDocToDTO = (doc: unknown): ProductDTO => {
+const mapDocToDTO = (doc: unknown, newThreshold?: Date): ProductDTO => {
 	const d = doc as ProductDoc
 	// ✅ Calculate seller rating
 	const sellerPositiveReviews = d.seller?.positiveReviews || 0
@@ -139,6 +146,12 @@ const mapDocToDTO = (doc: unknown): ProductDTO => {
 		sellerTotalRatings > 0
 			? Math.round((sellerPositiveReviews / sellerTotalRatings) * 100)
 			: 0
+
+	// ✅ Calculate isNew based on createdAt and newThreshold
+	let isNewFlag = false
+	if (newThreshold && d.createdAt && new Date(d.createdAt) >= newThreshold) {
+		isNewFlag = true
+	}
 
 	return {
 		_id: d._id.toString(),
@@ -182,7 +195,7 @@ const mapDocToDTO = (doc: unknown): ProductDTO => {
 			? d.highestBidder._id.toString()
 			: undefined,
 
-		isNew: false,
+		isNew: isNewFlag,
 	}
 }
 
@@ -252,7 +265,9 @@ router.get('/', async (req: Request, res: Response) => {
 		return res.json({
 			success: true,
 			data: {
-				products: products.map(mapDocToDTO),
+				products: products.map((p: any) =>
+					mapDocToDTO(p, getNewProductThreshold())
+				),
 				total,
 				page: Number(page),
 				limit: Number(limit),
@@ -422,15 +437,7 @@ router.get('/search', async (req: Request, res: Response) => {
 		// Map to DTO and mark new products
 		const mappedProducts: ProductDTO[] = []
 		for (const doc of products) {
-			const dto = mapDocToDTO(doc)
-			// Mark as new if created within threshold
-			const docAny = doc as unknown as { createdAt?: Date }
-			if (
-				docAny.createdAt &&
-				new Date(docAny.createdAt) >= newThreshold
-			) {
-				dto.isNew = true
-			}
+			const dto = mapDocToDTO(doc, newThreshold)
 			mappedProducts.push(dto)
 		}
 
@@ -482,9 +489,15 @@ router.get('/home', async (req: Request, res: Response) => {
 			.lean()
 
 		res.json({
-			endingSoon: endingSoonDocs.map(mapDocToDTO),
-			mostBids: mostBidsDocs.map(mapDocToDTO),
-			highestPrice: highestPriceDocs.map(mapDocToDTO),
+			endingSoon: endingSoonDocs.map((p: any) =>
+				mapDocToDTO(p, getNewProductThreshold())
+			),
+			mostBids: mostBidsDocs.map((p: any) =>
+				mapDocToDTO(p, getNewProductThreshold())
+			),
+			highestPrice: highestPriceDocs.map((p: any) =>
+				mapDocToDTO(p, getNewProductThreshold())
+			),
 		})
 	} catch (error: unknown) {
 		res.status(500).json({ error: String(error) || 'Lỗi hệ thống' })
@@ -508,7 +521,9 @@ router.get('/ending-soon', async (req: Request, res: Response) => {
 		const total = await Product.countDocuments({ endTime: { $gt: now } })
 
 		res.json({
-			products: products.map(mapDocToDTO),
+			products: products.map((p: any) =>
+				mapDocToDTO(p, getNewProductThreshold())
+			),
 			total,
 			page: Number(page),
 			totalPages: Math.ceil(total / Number(limit)),
@@ -534,7 +549,9 @@ router.get('/most-bids', async (req: Request, res: Response) => {
 		const total = await Product.countDocuments()
 
 		res.json({
-			products: products.map(mapDocToDTO),
+			products: products.map((p: any) =>
+				mapDocToDTO(p, getNewProductThreshold())
+			),
 			total,
 			page: Number(page),
 			totalPages: Math.ceil(total / Number(limit)),
@@ -560,7 +577,9 @@ router.get('/highest-price', async (req: Request, res: Response) => {
 		const total = await Product.countDocuments()
 
 		res.json({
-			products: products.map(mapDocToDTO),
+			products: products.map((p: any) =>
+				mapDocToDTO(p, getNewProductThreshold())
+			),
 			total,
 			page: Number(page),
 			totalPages: Math.ceil(total / Number(limit)),
@@ -607,7 +626,9 @@ router.get(
 			return res.json({
 				success: true,
 				data: {
-					products: products.map(mapDocToDTO),
+					products: products.map((p: any) =>
+						mapDocToDTO(p, getNewProductThreshold())
+					),
 					total,
 					page: Number(page),
 					totalPages: Math.ceil(total / Number(limit)),
@@ -662,7 +683,9 @@ router.get(
 			)
 
 			return res.json({
-				products: products.map(mapDocToDTO),
+				products: products.map((p: any) =>
+					mapDocToDTO(p, getNewProductThreshold())
+				),
 				categoryId,
 				categoryName: category.name,
 			})
@@ -709,7 +732,9 @@ router.get(
 				.lean()
 
 			return res.json({
-				products: products.map(mapDocToDTO),
+				products: products.map((p: any) =>
+					mapDocToDTO(p, getNewProductThreshold())
+				),
 				categoryName: decodedName,
 			})
 		} catch (error: unknown) {
@@ -742,7 +767,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 
 		return res.json({
 			success: true,
-			product: mapDocToDTO(product), // ✅ Now includes seller info
+			product: mapDocToDTO(product, getNewProductThreshold()),
 		})
 	} catch (error: unknown) {
 		return res.status(500).json({
@@ -773,7 +798,9 @@ router.get('/:id/related', async (req: Request, res: Response) => {
 			.lean()
 
 		return res.json({
-			products: relatedProducts.map(mapDocToDTO),
+			products: relatedProducts.map((p: any) =>
+				mapDocToDTO(p, getNewProductThreshold())
+			),
 		})
 	} catch (error: unknown) {
 		return res.status(500).json({
@@ -927,27 +954,41 @@ router.put(
 
 				if (seller && bidderIds.length > 0) {
 					// Get all bidder info
-					const bidders = await User.find({ _id: { $in: bidderIds } }).lean()
+					const bidders = await User.find({
+						_id: { $in: bidderIds },
+					}).lean()
 
 					const sellerName = `${seller.firstName} ${seller.lastName}`
 
 					// Send email to each bidder
 					for (const bidder of bidders) {
-						MailService.sendMail(bidder.email, 'product-description-updated', {
-							productName: product.name,
-							sellerName,
-							bidderName: `${bidder.firstName} ${bidder.lastName}`,
-							productId: id,
-							updatedAt: now,
-						}).catch((err) =>
-							console.error(`❌ Failed to send description update email to ${bidder.email}:`, err)
+						MailService.sendMail(
+							bidder.email,
+							'product-description-updated',
+							{
+								productName: product.name,
+								sellerName,
+								bidderName: `${bidder.firstName} ${bidder.lastName}`,
+								productId: id,
+								updatedAt: now,
+							}
+						).catch((err) =>
+							console.error(
+								`❌ Failed to send description update email to ${bidder.email}:`,
+								err
+							)
 						)
 					}
 
-					console.log(`✅ Sent description update emails to ${bidders.length} bidder(s) for product ${id}`)
+					console.log(
+						`✅ Sent description update emails to ${bidders.length} bidder(s) for product ${id}`
+					)
 				}
 			} catch (emailError) {
-				console.error('❌ Error sending description update emails:', emailError)
+				console.error(
+					'❌ Error sending description update emails:',
+					emailError
+				)
 				// Don't fail the update if email fails
 			}
 
