@@ -193,13 +193,13 @@ const ProductDetail = () => {
 				queryClient.invalidateQueries({ queryKey: ['myBid', id] })
 			}
 		},
-		onError: (error: any) => {
-			toast({
-				title: 'Lỗi đặt giá',
-				description: error.response?.data?.error || 'Không thể đặt giá',
-				variant: 'destructive',
-			})
-		},
+		// onError: (error: any) => {
+		// 	toast({
+		// 		title: 'Lỗi đặt giá',
+		// 		description: error.response?.data?.error || 'Không thể đặt giá',
+		// 		variant: 'destructive',
+		// 	})
+		// },
 	})
 
 	// Buy now mutation
@@ -213,14 +213,14 @@ const ProductDetail = () => {
 			// Navigate to order completion page
 			navigate(`/order-completion/${id}`)
 		},
-		onError: (error: any) => {
-			toast({
-				title: 'Lỗi mua ngay',
-				description:
-					error.response?.data?.error || 'Không thể mua ngay',
-				variant: 'destructive',
-			})
-		},
+		// onError: (error: any) => {
+		// 	toast({
+		// 		title: 'Lỗi mua ngay',
+		// 		description:
+		// 			error.response?.data?.error || 'Không thể mua ngay',
+		// 		variant: 'destructive',
+		// 	})
+		// },
 	})
 
 	// Reject bid mutation (for seller)
