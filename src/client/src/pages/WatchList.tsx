@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { ProductCard } from '@/components/ProductCard'
-import { Heart, Filter, Grid3x3, List, TrendingUp } from 'lucide-react'
+import { Heart, Filter, Grid3x3, List, Search } from 'lucide-react'
 import { Button } from '@/components/ui/input/button'
+import { Input } from '@/components/ui/input/input'
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -9,17 +10,17 @@ import {
 	DropdownMenuTrigger,
 } from '@/components/ui/navigation/dropdown-menu'
 import { Card, CardContent } from '@/components/ui/data-display/card'
-import { Badge } from '@/components/ui/data-display/badge'
 import { useQuery } from '@tanstack/react-query'
 import { fetchWatchlist } from '@/services/api/watchlist.api'
 import { useAuth } from '@/contexts/AuthContext'
-import { Header } from '@/components/Header' // ✅ ADD THIS
+import { Header } from '@/components/Header'
 
 export default function WatchList() {
 	const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
 	const [sortBy, setSortBy] = useState<'newest' | 'ending' | 'price'>(
 		'newest'
 	)
+	const [searchQuery, setSearchQuery] = useState('')
 	const { user } = useAuth()
 
 	// ✅ Fetch watchlist from backend
@@ -29,7 +30,44 @@ export default function WatchList() {
 		enabled: !!user, // Only fetch if user is logged in
 	})
 
-	const watchList = data?.watchlist ?? []
+	const watchList = useMemo(() => data?.watchlist ?? [], [data?.watchlist])
+
+	// ✅ Filter watchlist based on search query
+	const filteredWatchList = useMemo(() => {
+		if (!searchQuery.trim()) return watchList
+
+		const query = searchQuery.toLowerCase().trim()
+		return watchList.filter((product) => {
+			const nameMatch = product.name.toLowerCase().includes(query)
+			const categoryMatch = product.categoryName
+				?.toLowerCase()
+				.includes(query)
+			return nameMatch || categoryMatch
+		})
+	}, [watchList, searchQuery])
+
+	// ✅ Sort filtered watchlist
+	const sortedWatchList = useMemo(() => {
+		const sorted = [...filteredWatchList]
+		switch (sortBy) {
+			case 'ending':
+				return sorted.sort(
+					(a, b) =>
+						new Date(a.endTime).getTime() -
+						new Date(b.endTime).getTime()
+				)
+			case 'price':
+				return sorted.sort((a, b) => b.currentPrice - a.currentPrice)
+			case 'newest':
+			default:
+				// Sort by endTime descending (products ending later = newer)
+				return sorted.sort(
+					(a, b) =>
+						new Date(b.endTime).getTime() -
+						new Date(a.endTime).getTime()
+				)
+		}
+	}, [filteredWatchList, sortBy])
 
 	// Calculate statistics
 	const stats = {
@@ -190,6 +228,43 @@ export default function WatchList() {
 							</div>
 						)}
 					</div>
+
+					{/* ✅ SEARCH BAR */}
+					{watchList.length > 0 && (
+						<div className="mt-4">
+							<div className="relative">
+								<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+								<Input
+									type="search"
+									placeholder="Tìm kiếm trong danh sách yêu thích..."
+									value={searchQuery}
+									onChange={(e) =>
+										setSearchQuery(e.target.value)
+									}
+									className="pl-10 h-10"
+								/>
+							</div>
+							{searchQuery && (
+								<p className="text-sm text-muted-foreground mt-2">
+									Tìm thấy{' '}
+									<span className="font-semibold text-foreground">
+										{filteredWatchList.length}
+									</span>{' '}
+									sản phẩm
+									{filteredWatchList.length !==
+										watchList.length && (
+										<>
+											{' '}
+											trong tổng số{' '}
+											<span className="font-semibold text-foreground">
+												{watchList.length}
+											</span>
+										</>
+									)}
+								</p>
+							)}
+						</div>
+					)}
 				</div>
 
 				{/* ✅ STATISTICS CARDS */}
@@ -235,6 +310,28 @@ export default function WatchList() {
 							</Button>
 						</CardContent>
 					</Card>
+				) : sortedWatchList.length === 0 ? (
+					<Card className="border-dashed">
+						<CardContent className="flex flex-col items-center justify-center py-16">
+							<div className="h-24 w-24 rounded-full bg-muted flex items-center justify-center mb-4">
+								<Search className="h-12 w-12 text-muted-foreground" />
+							</div>
+							<h3 className="text-xl font-semibold mb-2">
+								Không tìm thấy sản phẩm
+							</h3>
+							<p className="text-muted-foreground text-center max-w-sm mb-6">
+								Không có sản phẩm nào phù hợp với từ khóa "
+								{searchQuery}". Hãy thử tìm kiếm với từ khóa
+								khác.
+							</p>
+							<Button
+								variant="outline"
+								onClick={() => setSearchQuery('')}
+							>
+								Xóa tìm kiếm
+							</Button>
+						</CardContent>
+					</Card>
 				) : (
 					<div
 						className={
@@ -243,7 +340,7 @@ export default function WatchList() {
 								: 'flex flex-col gap-4'
 						}
 					>
-						{watchList.map((product) => (
+						{sortedWatchList.map((product) => (
 							<ProductCard
 								key={product._id}
 								id={product._id}
