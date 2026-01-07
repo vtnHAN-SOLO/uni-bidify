@@ -409,10 +409,19 @@ router.post('/', Auth, async (req: Request, res: Response) => {
 					if (previousHighestBidderId && previousHighestBidderId !== user._id.toString()) {
 						const previousBidder = await User.findById(previousHighestBidderId).lean()
 						if (previousBidder) {
+							// Get the previous bidder's highest bid
+							const previousBidRecord = await Bid.findOne({
+								product: productId,
+								bidder: previousHighestBidderId
+							}).sort({ price: -1 }).lean()
+
 							MailService.sendMail(previousBidder.email, 'bid-outbid', {
 								productName: product.name,
+								previousBid: previousBidRecord?.price || 0,
 								newBid: finalPrice,
 								outbidderName: `${bidderInfo.firstName} ${bidderInfo.lastName}`,
+								previousBidderName: `${previousBidder.firstName} ${previousBidder.lastName}`,
+								endTime: product.endTime,
 								productId: productId
 							}).catch(console.error)
 						}
@@ -420,8 +429,11 @@ router.post('/', Auth, async (req: Request, res: Response) => {
 				} else if (!isWinner) {
 					MailService.sendMail(bidderInfo.email, 'bid-outbid', {
 						productName: product.name,
+						previousBid: maxPrice,
 						newBid: finalPrice,
 						outbidderName: 'Hệ thống tự động',
+						previousBidderName: `${bidderInfo.firstName} ${bidderInfo.lastName}`,
+						endTime: product.endTime,
 						productId: productId
 					}).catch(console.error)
 				}
