@@ -95,7 +95,7 @@ const Index = () => {
 					</div>
 
 					<div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
-						{endingSoon.map((p) => (
+						{[...endingSoon].reverse().map((p) => (
 							<ProductCard key={p._id} {...mapToCardProps(p)} />
 						))}
 					</div>
